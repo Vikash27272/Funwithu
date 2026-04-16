@@ -91,8 +91,10 @@ export function AppShell() {
         landing ? "" : "px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-10"
       }`}
     >
-      <FloatingHearts />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,113,133,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(127,29,29,0.10),transparent_34%)]" />
+      {!landing ? <FloatingHearts /> : null}
+      {!landing ? (
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(251,113,133,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(127,29,29,0.10),transparent_34%)]" />
+      ) : null}
 
       <div
         className={`relative min-w-0 ${

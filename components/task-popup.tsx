@@ -34,8 +34,8 @@ export function TaskPopup({
   const taskDoer = pendingTask.task.target;
   const isFemaleDominant = taskGiver === "female";
   const duoImagePath = isFemaleDominant
-    ? "/images/cards/sample-female-dominant-task-card-image.jpg"
-    : "/images/cards/sample-male-dominant-task-card-image.jpg";
+    ? "/images/profiles/female-sample-profile.jpg"
+    : "/images/profiles/male-sample-profile.jpg";
   const dominantLabel = isFemaleDominant ? "Queen leads" : "King leads";
   const performerLabel = taskDoer === "female" ? "Queen performs" : "King performs";
   const theme = isFemaleDominant
