@@ -11,6 +11,7 @@ export type ModeType = "preset" | "custom";
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 export type LogTone = "neutral" | "success" | "warning";
 export type OnlineRoomPhase = "lobby" | "mode-select" | "playing";
+export type OnlineInteractionPhase = "idle" | "question";
 
 export interface TaskRow {
   id: string;
@@ -46,9 +47,9 @@ export interface GameStateShape {
 }
 
 export interface OnlineRoomPlayer {
+  id: string;
   role: PlayerKey;
   name: string;
-  sessionId: string;
   isHost: boolean;
   joinedAt: number;
 }
@@ -71,11 +72,20 @@ export interface OnlineMatchSnapshot {
 }
 
 export interface OnlineRoom {
+  id: string;
   code: string;
   name: string;
   createdAt: number;
   updatedAt: number;
-  hostSessionId: string;
+  gameOver: boolean;
+  playerCount: number;
+  started: boolean;
+  playersOrder: string[];
+  turnIndex: number;
+  interactionPhase: OnlineInteractionPhase | null;
+  currentQuestion: string | null;
+  questionType: "truth" | "dare" | null;
+  actionBy: string | null;
   selectedGame: GameKey | null;
   phase: OnlineRoomPhase;
   players: Record<PlayerKey, OnlineRoomPlayer | null>;

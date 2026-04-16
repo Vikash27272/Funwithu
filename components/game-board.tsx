@@ -11,6 +11,12 @@ import { TaskEditor } from "@/components/task-editor";
 import { TaskPopup } from "@/components/task-popup";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { getSkipAllowance, getTrackRows } from "@/utils/game-logic";
+import {
+  pickOnlineQuestion,
+  readPlayerSession,
+  resetOnlineGame,
+  resolveOnlineAction,
+} from "@/utils/online-room";
 import { useGameStore } from "@/utils/game-store";
 import { vibrate } from "@/utils/haptics";
 
@@ -191,6 +197,7 @@ export function GameBoard() {
   const entryMode = useGameStore((state) => state.entryMode);
   const players = useGameStore((state) => state.players);
   const onlineRoom = useGameStore((state) => state.onlineRoom);
+  const onlinePlayerId = useGameStore((state) => state.onlinePlayerId);
   const currentTurn = useGameStore((state) => state.currentTurn);
   const pendingTask = useGameStore((state) => state.pendingTask);
   const queuedTask = useGameStore((state) => state.queuedTask);
@@ -211,9 +218,90 @@ export function GameBoard() {
   const resetExperience = useGameStore((state) => state.resetExperience);
   const leaveOnlineRoom = useGameStore((state) => state.leaveOnlineRoom);
   const restartMatch = useGameStore((state) => state.restartMatch);
+  const syncOnlineRoom = useGameStore((state) => state.syncOnlineRoom);
   const [exitOpen, setExitOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<null | "truth" | "dare" | "accept" | "skip">(null);
+  const [replayRequested, setReplayRequested] = useState(false);
+  const [replayError, setReplayError] = useState<string | null>(null);
   const lastLandingCueRef = useRef<string | null>(null);
   const lastCardCueRef = useRef<string | null>(null);
+  const currentTurnPlayerId = onlineRoom?.playersOrder?.[onlineRoom.turnIndex] ?? null;
+  const interactionPhase = onlineRoom?.interactionPhase ?? "idle";
+  const currentQuestion = onlineRoom?.currentQuestion;
+  const questionType = onlineRoom?.questionType;
+  const roomGameOver = entryMode === "online" && Boolean(onlineRoom?.gameOver);
+  const isMyTurn =
+    entryMode === "online" && onlinePlayerId
+      ? currentTurnPlayerId === onlinePlayerId
+      : true;
+  const showOnlineQuestion = interactionPhase === "question" && Boolean(currentQuestion);
+
+  const runOnlineAction = async (
+    action: "truth" | "dare" | "accept" | "skip",
+  ) => {
+    if (entryMode !== "online" || actionLoading || roomGameOver) {
+      return;
+    }
+
+    const session = readPlayerSession();
+    const roomId = session?.roomId ?? onlineRoom?.id ?? null;
+    const playerId = session?.playerId ?? onlinePlayerId ?? null;
+
+    if (!roomId || !playerId) {
+      return;
+    }
+
+    if ((action === "truth" || action === "dare") && (!isMyTurn || interactionPhase !== "idle")) {
+      return;
+    }
+
+    if ((action === "accept" || action === "skip") && (isMyTurn || interactionPhase !== "question")) {
+      return;
+    }
+
+    setActionLoading(action);
+
+    try {
+      if (action === "truth" || action === "dare") {
+        await pickOnlineQuestion({ roomId, playerId, type: action });
+      } else {
+        await resolveOnlineAction({ roomId, playerId, decision: action });
+      }
+
+      await syncOnlineRoom({ silent: true });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update the online action.";
+      console.log("Action error:", message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReplay = async () => {
+    if (entryMode !== "online" || replayRequested) {
+      return;
+    }
+
+    const session = readPlayerSession();
+    const roomId = session?.roomId ?? onlineRoom?.id ?? null;
+
+    if (!roomId) {
+      return;
+    }
+
+    setReplayRequested(true);
+    setReplayError(null);
+
+    try {
+      await resetOnlineGame(roomId);
+    } catch (error) {
+      setReplayRequested(false);
+      setReplayError(
+        error instanceof Error ? error.message : "Unable to restart the room right now.",
+      );
+    }
+  };
 
   useEffect(() => {
     if (!highlightedTile) {
@@ -292,27 +380,40 @@ export function GameBoard() {
     };
   }, [pendingTask, playCard]);
 
+  useEffect(() => {
+    if (roomGameOver) {
+      return;
+    }
+
+    setReplayRequested(false);
+    setReplayError(null);
+  }, [roomGameOver]);
+
   return (
     <>
       <div className="relative flex h-[var(--app-height,100dvh)] w-full max-w-full min-w-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_22%),linear-gradient(180deg,#6f1226_0%,#8d1d33_16%,#fdf7f8_16%,#fffafb_100%)] px-3 py-3 sm:px-4 sm:py-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => toggleLogs(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
-              aria-label="Open logs"
-            >
-              <ScrollText className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleEditor(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
-              aria-label="Edit tasks"
-            >
-              <PencilLine className="h-5 w-5" />
-            </button>
+            {entryMode === "offline" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => toggleLogs(true)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
+                  aria-label="Open logs"
+                >
+                  <ScrollText className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleEditor(true)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
+                  aria-label="Edit tasks"
+                >
+                  <PencilLine className="h-5 w-5" />
+                </button>
+              </>
+            ) : null}
           </div>
 
           <button
@@ -332,9 +433,17 @@ export function GameBoard() {
                 Shared Board
               </p>
               <p className="mt-1 text-sm font-semibold text-[#59202c] sm:text-base">
-                {currentTurn === "female"
-                  ? `${players.female.name}'s turn`
-                  : `${players.male.name}'s turn`}
+                {entryMode === "online"
+                  ? interactionPhase === "idle"
+                    ? isMyTurn
+                      ? "Your Turn"
+                      : "Partner is choosing..."
+                    : isMyTurn
+                      ? "Perform the task!"
+                      : "Judge the result"
+                  : currentTurn === "female"
+                    ? `${players.female.name}'s turn`
+                    : `${players.male.name}'s turn`}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -363,6 +472,78 @@ export function GameBoard() {
         </div>
 
         <div className="mt-3 rounded-[1.6rem] border border-white/55 bg-white/46 p-2.5 shadow-[0_20px_48px_rgba(127,29,45,0.12)] backdrop-blur-xl sm:p-3">
+          {entryMode === "online" ? (
+            <div className="mb-3 rounded-[1.35rem] border border-white/60 bg-white/72 px-4 py-3">
+              {interactionPhase === "idle" ? (
+                isMyTurn ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-[#7f1d2d]">Your Turn</p>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void runOnlineAction("truth")}
+                        disabled={Boolean(actionLoading)}
+                        className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                      >
+                        {actionLoading === "truth" ? "Loading..." : "Truth"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runOnlineAction("dare")}
+                        disabled={Boolean(actionLoading)}
+                        className="rounded-full border border-[#d7b0b9] bg-white px-5 py-2.5 text-sm font-semibold text-[#7f1d2d] disabled:cursor-wait disabled:opacity-70"
+                      >
+                        {actionLoading === "dare" ? "Loading..." : "Dare"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium text-[#85505c]">Waiting for partner...</p>
+                )
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a05e6a]">
+                      {questionType === "dare" ? "Dare" : "Truth"}
+                    </p>
+                    <p className="text-sm leading-7 text-[#59202c] sm:text-base">
+                      {currentQuestion ?? "Question unavailable right now."}
+                    </p>
+                  </div>
+
+                  {showOnlineQuestion ? (
+                    isMyTurn ? (
+                      <p className="text-sm font-semibold text-[#7f1d2d]">Perform the task!</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void runOnlineAction("accept")}
+                          disabled={Boolean(actionLoading)}
+                          className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {actionLoading === "accept" ? "Saving..." : "Accept"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void runOnlineAction("skip")}
+                          disabled={Boolean(actionLoading)}
+                          className="rounded-full border border-[#d7b0b9] bg-white px-5 py-2.5 text-sm font-semibold text-[#7f1d2d] disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {actionLoading === "skip" ? "Saving..." : "Skip"}
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <p className="text-sm font-medium text-[#85505c]">
+                      Waiting for the question to sync...
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null}
+
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2 sm:gap-3">
             <PlayerPanel
               role="queen"
@@ -383,7 +564,12 @@ export function GameBoard() {
               >
                 <Dice
                   player={currentTurn}
-                  disabled={Boolean(pendingTask) || Boolean(queuedTask) || Boolean(winner)}
+                  disabled={
+                    entryMode === "online" ||
+                    Boolean(pendingTask) ||
+                    Boolean(queuedTask) ||
+                    Boolean(winner)
+                  }
                   onRollStart={() => {
                     vibrate("light");
                     playDice();
@@ -420,13 +606,63 @@ export function GameBoard() {
         </div>
       </div>
 
-      <TaskPopup
-        pendingTask={pendingTask}
-        players={players}
-        clearedPlayers={clearedPlayers}
-        onAccept={() => resolvePendingTask("accept")}
-        onSkip={() => resolvePendingTask("skip")}
-      />
+      {entryMode === "offline" ? (
+        <TaskPopup
+          pendingTask={pendingTask}
+          players={players}
+          clearedPlayers={clearedPlayers}
+          onAccept={() => resolvePendingTask("accept")}
+          onSkip={() => resolvePendingTask("skip")}
+        />
+      ) : null}
+
+      <AnimatePresence>
+        {roomGameOver ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(18,3,7,0.42)] p-4 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 12 }}
+              className="w-full max-w-lg rounded-[2rem] border border-white/60 bg-[linear-gradient(180deg,rgba(255,251,252,0.94),rgba(255,240,244,0.90))] px-6 py-10 text-center shadow-[0_30px_90px_rgba(88,18,33,0.18)] backdrop-blur-xl sm:px-8"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#a05e6a]">
+                Session Complete
+              </p>
+              <h3 className="mt-4 font-display text-[clamp(2.5rem,7vw,4.4rem)] leading-none text-[#5f1626]">
+                Hope you enjoyed!
+              </h3>
+              <p className="mt-4 text-base leading-8 text-[#6b3846] sm:text-lg">
+                That was fun {"\u{1F60A}"}
+                <br />
+                Let&apos;s play again?
+              </p>
+
+              {replayRequested ? (
+                <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f4153]">
+                  Restarting room...
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleReplay()}
+                  className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-7 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(127,29,45,0.22)]"
+                >
+                  Play Again {"\u{1F501}"}
+                </button>
+              )}
+
+              {replayError ? (
+                <p className="mt-4 text-sm leading-6 text-[#8f4153]">{replayError}</p>
+              ) : null}
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {winner ? (
@@ -474,7 +710,7 @@ export function GameBoard() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {logsOpen ? (
+        {entryMode === "offline" && logsOpen ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -561,7 +797,7 @@ export function GameBoard() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {editorOpen ? (
+        {entryMode === "offline" && editorOpen ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

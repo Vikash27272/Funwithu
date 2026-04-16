@@ -27,16 +27,24 @@ import {
   movePlayerOnTrack,
 } from "@/utils/game-logic";
 import {
-  createSessionId,
-  generateRoomCode,
-  normalizeRoomCode,
-  readRoom,
-  removeRoom,
-  writeRoom,
+  clearPlayerSession,
+  deleteOnlineRoom,
+  fetchRoomById,
+  getRoleForPlayer,
+  readPlayerSession,
+  updateRoomState,
 } from "@/utils/online-room";
 
 const DEFAULT_OFFLINE_NAMES = { male: "King", female: "Queen" } as const;
 const DEFAULT_ONLINE_NAMES = { male: "Male", female: "Female" } as const;
+
+function createSessionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 interface CoupleGameState {
   screen: Screen;
@@ -59,14 +67,16 @@ interface CoupleGameState {
   logsOpen: boolean;
   clearedPlayers: Record<PlayerKey, boolean>;
   onlineSessionId: string;
+  onlinePlayerId: string | null;
   onlineRoom: OnlineRoom | null;
   onlineRole: PlayerKey | null;
+  onlineRoomLoading: boolean;
   onlineError: string | null;
   startOfflineFlow: () => void;
   startOnlineFlow: () => void;
-  createOnlineRoom: (roomName: string) => boolean;
-  joinOnlineRoom: (roomCode: string) => boolean;
-  syncOnlineRoom: () => void;
+  createOnlineRoom: (roomName: string) => Promise<boolean>;
+  joinOnlineRoom: (roomCode: string) => Promise<boolean>;
+  syncOnlineRoom: (options?: { silent?: boolean }) => Promise<void>;
   clearOnlineError: () => void;
   leaveOnlineRoom: (destination?: Screen) => void;
   setScreen: (screen: Screen) => void;
@@ -131,18 +141,6 @@ function getOnlineNames(room: OnlineRoom | null): Record<PlayerKey, string> {
   };
 }
 
-function getRoleForSession(room: OnlineRoom, sessionId: string): PlayerKey | null {
-  if (room.players.male?.sessionId === sessionId) {
-    return "male";
-  }
-
-  if (room.players.female?.sessionId === sessionId) {
-    return "female";
-  }
-
-  return null;
-}
-
 function screenForPhase(phase: OnlineRoomPhase): Screen {
   if (phase === "mode-select") {
     return "mode-select";
@@ -153,6 +151,14 @@ function screenForPhase(phase: OnlineRoomPhase): Screen {
   }
 
   return "game-select";
+}
+
+function screenForRoom(room: OnlineRoom): Screen {
+  if (room.started) {
+    return "playing";
+  }
+
+  return screenForPhase(room.phase);
 }
 
 function createSnapshotFromState(state: CoupleGameState): OnlineMatchSnapshot {
@@ -174,6 +180,30 @@ function createSnapshotFromState(state: CoupleGameState): OnlineMatchSnapshot {
   };
 }
 
+function defaultPlayersOrder(room: OnlineRoom): string[] {
+  return [room.players.male?.id, room.players.female?.id].filter(
+    (playerId): playerId is string => Boolean(playerId),
+  );
+}
+
+function getTurnRole(room: OnlineRoom): PlayerKey | null {
+  const activePlayerId = room.playersOrder[room.turnIndex];
+
+  if (!activePlayerId) {
+    return null;
+  }
+
+  if (room.players.male?.id === activePlayerId) {
+    return "male";
+  }
+
+  if (room.players.female?.id === activePlayerId) {
+    return "female";
+  }
+
+  return null;
+}
+
 function roomStatePatch(
   room: OnlineRoom,
   currentDifficulty: Difficulty,
@@ -181,6 +211,7 @@ function roomStatePatch(
 ) {
   const fallbackNames = getOnlineNames(room);
   const snapshot = room.matchSnapshot;
+  const turnRole = getTurnRole(room);
 
   if (snapshot) {
     return {
@@ -189,7 +220,7 @@ function roomStatePatch(
       difficulty: snapshot.difficulty,
       players: snapshot.players,
       tasks: snapshot.tasks,
-      currentTurn: snapshot.currentTurn,
+      currentTurn: turnRole ?? snapshot.currentTurn,
       pendingTask: snapshot.pendingTask,
       queuedTask: snapshot.queuedTask,
       highlightedTile: snapshot.highlightedTile,
@@ -208,7 +239,7 @@ function roomStatePatch(
     difficulty: currentDifficulty,
     players: createFreshPlayers(fallbackNames),
     tasks: buildTaskDeck(currentDifficulty, fallbackNames),
-    currentTurn: "male" as PlayerKey,
+    currentTurn: turnRole ?? ("male" as PlayerKey),
     pendingTask: null,
     queuedTask: null,
     highlightedTile: null,
@@ -231,6 +262,8 @@ function roomStatePatch(
 }
 
 function createInitialState(sessionId = createSessionId()) {
+  const storedSession = readPlayerSession();
+
   return {
     screen: "landing" as Screen,
     entryMode: "offline" as const,
@@ -261,8 +294,10 @@ function createInitialState(sessionId = createSessionId()) {
       female: false,
     },
     onlineSessionId: sessionId,
+    onlinePlayerId: storedSession?.playerId ?? null,
     onlineRoom: null as OnlineRoom | null,
     onlineRole: null as PlayerKey | null,
+    onlineRoomLoading: Boolean(storedSession),
     onlineError: null as string | null,
   };
 }
@@ -270,20 +305,54 @@ function createInitialState(sessionId = createSessionId()) {
 export const useGameStore = create<CoupleGameState>()(
   persist(
     (set, get) => {
-      const syncStoredRoom = (patch?: Partial<OnlineRoom>) => {
+      const resetOnlineSession = (screen: Screen, error: string | null) => {
         const state = get();
+        const resetState = createInitialState(state.onlineSessionId);
 
-        if (!state.onlineRoom || !state.onlineRole) {
+        set({
+          ...resetState,
+          screen,
+          entryMode: screen === "landing" || screen === "setup" ? "offline" : "online",
+          onlinePlayerId: null,
+          onlineRoomLoading: false,
+          onlineError: error,
+        });
+      };
+
+      const syncStoredRoom = async (
+        patch?: Partial<
+          Pick<
+            OnlineRoom,
+            | "selectedGame"
+            | "phase"
+            | "gameOver"
+            | "matchSnapshot"
+            | "playersOrder"
+            | "turnIndex"
+            | "started"
+            | "interactionPhase"
+            | "currentQuestion"
+            | "questionType"
+            | "actionBy"
+          >
+        >,
+      ) => {
+        const state = get();
+        const storedSession = readPlayerSession();
+        const roomId = state.onlineRoom?.id ?? storedSession?.roomId;
+        const playerId = state.onlinePlayerId ?? storedSession?.playerId ?? null;
+
+        if (!roomId || !playerId) {
           return null;
         }
 
-        const latestRoom = readRoom(state.onlineRoom.code);
+        const latestRoom = await fetchRoomById(roomId);
 
         if (!latestRoom) {
           return null;
         }
 
-        const role = getRoleForSession(latestRoom, state.onlineSessionId);
+        const role = getRoleForPlayer(latestRoom, playerId);
 
         if (!role) {
           return null;
@@ -291,18 +360,60 @@ export const useGameStore = create<CoupleGameState>()(
 
         const nextRoom: OnlineRoom = {
           ...latestRoom,
-          ...patch,
-          players: patch?.players ?? latestRoom.players,
           selectedGame: patch?.selectedGame ?? latestRoom.selectedGame,
           phase: patch?.phase ?? latestRoom.phase,
+          gameOver: patch?.gameOver ?? latestRoom.gameOver,
           matchSnapshot:
             patch && "matchSnapshot" in patch
               ? patch.matchSnapshot ?? null
               : latestRoom.matchSnapshot,
+          playersOrder:
+            patch?.playersOrder ??
+            latestRoom.playersOrder ??
+            defaultPlayersOrder(latestRoom),
+          turnIndex: patch?.turnIndex ?? latestRoom.turnIndex ?? 0,
+          interactionPhase:
+            patch?.interactionPhase ?? latestRoom.interactionPhase ?? (latestRoom.started ? "idle" : null),
+          currentQuestion: patch?.currentQuestion ?? latestRoom.currentQuestion,
+          questionType: patch?.questionType ?? latestRoom.questionType,
+          actionBy: patch?.actionBy ?? latestRoom.actionBy,
+          started:
+            patch?.started ??
+            (patch && ("phase" in patch || "matchSnapshot" in patch)
+              ? (patch?.phase ?? latestRoom.phase) !== "lobby" ||
+                Boolean(
+                  patch && "matchSnapshot" in patch
+                    ? patch.matchSnapshot
+                    : latestRoom.matchSnapshot,
+                )
+              : latestRoom.started),
+          updatedAt: patch ? Date.now() : latestRoom.updatedAt,
         };
 
-        writeRoom(nextRoom);
-        return { room: nextRoom, role };
+        if (patch) {
+          const currentTurnName = nextRoom.playersOrder[nextRoom.turnIndex] ?? null;
+
+          await updateRoomState({
+            roomId,
+            gameOver: nextRoom.gameOver,
+            started:
+              nextRoom.phase !== "lobby" ||
+              nextRoom.started ||
+              Boolean(nextRoom.matchSnapshot),
+            playersOrder: nextRoom.playersOrder,
+            turnIndex: nextRoom.turnIndex,
+            interactionPhase: nextRoom.interactionPhase,
+            currentQuestion: nextRoom.currentQuestion,
+            questionType: nextRoom.questionType,
+            actionBy: nextRoom.actionBy,
+            phase: nextRoom.phase,
+            selectedGame: nextRoom.selectedGame,
+            matchSnapshot: nextRoom.matchSnapshot,
+            turn: currentTurnName,
+          });
+        }
+
+        return { room: nextRoom, role, playerId };
       };
 
       const syncMatchSnapshot = (phase?: OnlineRoomPhase) => {
@@ -312,14 +423,27 @@ export const useGameStore = create<CoupleGameState>()(
           return;
         }
 
-        const synced = syncStoredRoom({
+        void syncStoredRoom({
           phase: phase ?? state.onlineRoom.phase,
           matchSnapshot: createSnapshotFromState(state),
-        });
+        })
+          .then((synced) => {
+            if (!synced) {
+              return;
+            }
 
-        if (synced) {
-          set({ onlineRoom: synced.room, onlineRole: synced.role });
-        }
+            set({
+              onlineRoom: synced.room,
+              onlineRole: synced.role,
+              onlinePlayerId: synced.playerId,
+            });
+          })
+          .catch((error) => {
+            set({
+              onlineError:
+                error instanceof Error ? error.message : "Unable to sync the room state.",
+            });
+          });
       };
 
       return {
@@ -328,221 +452,118 @@ export const useGameStore = create<CoupleGameState>()(
           set({
             screen: "setup",
             entryMode: "offline",
+            onlineRoomLoading: false,
             onlineError: null,
           }),
         startOnlineFlow: () => {
-          const state = get();
-
-          if (state.onlineRoom) {
-            const latestRoom = readRoom(state.onlineRoom.code);
-
-            if (latestRoom) {
-              const role = getRoleForSession(latestRoom, state.onlineSessionId);
-
-              if (role) {
-                set({
-                  entryMode: "online",
-                  screen: screenForPhase(latestRoom.phase),
-                  onlineRoom: latestRoom,
-                  onlineRole: role,
-                  onlineError: null,
-                  ...roomStatePatch(latestRoom, state.difficulty, state.selectedGame),
-                });
-                return;
-              }
-            }
-          }
-
           set({
             screen: "online-room",
             entryMode: "online",
+            onlineRoomLoading: Boolean(readPlayerSession()),
             onlineError: null,
           });
-        },
-        createOnlineRoom: (roomName) => {
-          const trimmedRoomName = roomName.trim() || "Private Room";
-          const state = get();
-          const code = generateRoomCode();
-          const createdAt = Date.now();
-          const room: OnlineRoom = {
-            code,
-            name: trimmedRoomName,
-            createdAt,
-            updatedAt: createdAt,
-            hostSessionId: state.onlineSessionId,
-            selectedGame: null,
-            phase: "lobby",
-            players: {
-              male: {
-                role: "male",
-                name: DEFAULT_ONLINE_NAMES.male,
-                sessionId: state.onlineSessionId,
-                isHost: true,
-                joinedAt: createdAt,
-              },
-              female: null,
-            },
-            matchSnapshot: null,
-          };
 
-          writeRoom(room);
+          void get().syncOnlineRoom();
+        },
+        createOnlineRoom: async () => {
           set({
-            entryMode: "online",
-            screen: "game-select",
-            players: createFreshPlayers(DEFAULT_ONLINE_NAMES),
-            tasks: buildTaskDeck(2, DEFAULT_ONLINE_NAMES),
-            currentTurn: "male",
-            pendingTask: null,
-            queuedTask: null,
-            highlightedTile: null,
-            highlightedPlayer: null,
-            openedCells: {},
-            diceValue: null,
-            winner: null,
-            logs: [
-              {
-                id: createLogId(),
-                text: `Room ${code} created. Share the code so one more player can join as Female.`,
-                tone: "success",
-              },
-            ],
-            editorOpen: false,
-            logsOpen: false,
-            clearedPlayers: {
-              male: false,
-              female: false,
-            },
-            onlineRoom: room,
-            onlineRole: "male",
-            onlineError: null,
+            onlineError: "Create the room with the Supabase form in the online room hub.",
           });
-
-          return true;
+          return false;
         },
-        joinOnlineRoom: (roomCode) => {
-          const state = get();
-          const code = normalizeRoomCode(roomCode);
-          const room = readRoom(code);
-
-          if (!room) {
-            set({ onlineError: "Room code not found. Check the 6-digit code and try again." });
-            return false;
-          }
-
-          const existingRole = getRoleForSession(room, state.onlineSessionId);
-
-          if (!existingRole && room.players.female) {
-            set({ onlineError: "This room is already full. Only two players are allowed." });
-            return false;
-          }
-
-          const joinedAt = Date.now();
-          const nextRole = existingRole ?? "female";
-          const nextRoom: OnlineRoom = {
-            ...room,
-            players: {
-              ...room.players,
-              [nextRole]:
-                room.players[nextRole] ??
-                ({
-                  role: nextRole,
-                  name: nextRole === "male" ? DEFAULT_ONLINE_NAMES.male : DEFAULT_ONLINE_NAMES.female,
-                  sessionId: state.onlineSessionId,
-                  isHost: nextRole === "male",
-                  joinedAt,
-                } satisfies NonNullable<OnlineRoom["players"][PlayerKey]>),
-            },
-          };
-
-          writeRoom(nextRoom);
-
+        joinOnlineRoom: async () => {
           set({
-            entryMode: "online",
-            screen: screenForPhase(nextRoom.phase),
-            editorOpen: false,
-            logsOpen: false,
-            onlineRoom: nextRoom,
-            onlineRole: nextRole,
-            onlineError: null,
-            ...roomStatePatch(nextRoom, state.difficulty, state.selectedGame),
+            onlineError: "Join the room with the Supabase form in the online room hub.",
           });
-
-          return true;
+          return false;
         },
-        syncOnlineRoom: () => {
+        syncOnlineRoom: async (options) => {
           const state = get();
+          const storedSession = readPlayerSession();
+          const silent = options?.silent ?? false;
 
-          if (!state.onlineRoom) {
-            return;
-          }
-
-          const latestRoom = readRoom(state.onlineRoom.code);
-
-          if (!latestRoom) {
-            const resetState = createInitialState(state.onlineSessionId);
+          if (!silent) {
             set({
-              ...resetState,
-              screen: "online-room",
               entryMode: "online",
-              onlineError: "That room is no longer available.",
+              onlineRoomLoading: true,
+              onlineError: null,
             });
+          }
+
+          if (!storedSession) {
+            if (state.entryMode === "online" || state.onlineRoom) {
+              resetOnlineSession("online-room", null);
+            } else if (!silent) {
+              set({ onlineRoomLoading: false });
+            }
             return;
           }
 
-          const role = getRoleForSession(latestRoom, state.onlineSessionId);
+          try {
+            const latestRoom = await fetchRoomById(storedSession.roomId);
 
-          if (!role) {
-            const resetState = createInitialState(state.onlineSessionId);
+            if (!latestRoom) {
+              clearPlayerSession();
+              resetOnlineSession("online-room", "That room is no longer available.");
+              return;
+            }
+
+            const role = getRoleForPlayer(latestRoom, storedSession.playerId);
+
+            if (!role) {
+              clearPlayerSession();
+              resetOnlineSession("online-room", "You are no longer part of this room.");
+              return;
+            }
+
             set({
-              ...resetState,
-              screen: "online-room",
               entryMode: "online",
-              onlineError: "You are no longer part of this room.",
+              screen: screenForRoom(latestRoom),
+              onlinePlayerId: storedSession.playerId,
+              onlineRoom: latestRoom,
+              onlineRole: role,
+              onlineRoomLoading: false,
+              onlineError: null,
+              ...roomStatePatch(latestRoom, state.difficulty, state.selectedGame),
             });
-            return;
+          } catch (error) {
+            set({
+              entryMode: "online",
+              screen: "online-room",
+              onlineRoomLoading: false,
+              onlineError:
+                error instanceof Error ? error.message : "Unable to load the online room.",
+            });
           }
-
-          set({
-            entryMode: "online",
-            screen: screenForPhase(latestRoom.phase),
-            onlineRoom: latestRoom,
-            onlineRole: role,
-            onlineError: null,
-            ...roomStatePatch(latestRoom, state.difficulty, state.selectedGame),
-          });
         },
         clearOnlineError: () => set({ onlineError: null }),
         leaveOnlineRoom: (destination = "landing") => {
           const state = get();
+          const storedSession = readPlayerSession();
+          const roomId = state.onlineRoom?.id ?? storedSession?.roomId ?? null;
+          const playerId = state.onlinePlayerId ?? storedSession?.playerId ?? null;
+          const isHost = state.onlineRole === "male";
 
-          if (state.onlineRoom && state.onlineRole) {
-            const latestRoom = readRoom(state.onlineRoom.code);
-
-            if (latestRoom) {
-              if (state.onlineRole === "male") {
-                removeRoom(latestRoom.code);
-              } else {
-                const nextRoom: OnlineRoom = {
-                  ...latestRoom,
-                  phase: latestRoom.phase === "playing" ? "lobby" : latestRoom.phase,
-                  players: {
-                    ...latestRoom.players,
-                    female: null,
-                  },
-                  matchSnapshot: latestRoom.phase === "playing" ? null : latestRoom.matchSnapshot,
-                };
-                writeRoom(nextRoom);
-              }
-            }
-          }
-
+          clearPlayerSession();
           const resetState = createInitialState(state.onlineSessionId);
-
           set({
             ...resetState,
             screen: destination,
             entryMode:
               destination === "setup" || destination === "landing" ? "offline" : "online",
+            onlinePlayerId: null,
+            onlineRoomLoading: false,
+          });
+
+          if (!roomId || !playerId) {
+            return;
+          }
+
+          void deleteOnlineRoom({ roomId, playerId, isHost }).catch((error) => {
+            set({
+              onlineError:
+                error instanceof Error ? error.message : "Unable to leave the online room.",
+            });
           });
         },
         setScreen: (screen) => set({ screen }),
@@ -557,6 +578,12 @@ export const useGameStore = create<CoupleGameState>()(
                 ? state.tasks
                 : buildTaskDeck(state.difficulty, names),
           });
+
+          const latestState = get();
+
+          if (latestState.entryMode === "online" && latestState.onlineRoom) {
+            syncMatchSnapshot(latestState.onlineRoom.phase);
+          }
         },
         setDifficulty: (difficulty) => {
           const state = get();
@@ -567,6 +594,12 @@ export const useGameStore = create<CoupleGameState>()(
             mode: "preset",
             tasks: buildTaskDeck(difficulty, names),
           });
+
+          const latestState = get();
+
+          if (latestState.entryMode === "online" && latestState.onlineRoom) {
+            syncMatchSnapshot(latestState.onlineRoom.phase);
+          }
         },
         selectGame: (game) => {
           const state = get();
@@ -577,20 +610,30 @@ export const useGameStore = create<CoupleGameState>()(
               return;
             }
 
-            const synced = syncStoredRoom({
+            void syncStoredRoom({
               selectedGame: game,
               phase: "mode-select",
-            });
+            })
+              .then((synced) => {
+                if (!synced) {
+                  return;
+                }
 
-            if (synced) {
-              set({
-                selectedGame: game,
-                screen: "mode-select",
-                onlineRoom: synced.room,
-                onlineRole: synced.role,
-                onlineError: null,
+                set({
+                  selectedGame: game,
+                  screen: "mode-select",
+                  onlineRoom: synced.room,
+                  onlineRole: synced.role,
+                  onlinePlayerId: synced.playerId,
+                  onlineError: null,
+                });
+              })
+              .catch((error) => {
+                set({
+                  onlineError:
+                    error instanceof Error ? error.message : "Unable to update the room.",
+                });
               });
-            }
 
             return;
           }
@@ -623,6 +666,12 @@ export const useGameStore = create<CoupleGameState>()(
             difficulty: nextDifficulty,
             tasks: buildTaskDeck(nextDifficulty, names),
           });
+
+          const latestState = get();
+
+          if (latestState.entryMode === "online" && latestState.onlineRoom) {
+            syncMatchSnapshot(latestState.onlineRoom.phase);
+          }
         },
         updateTask: (target, position, task) => {
           set((state) => ({
@@ -734,11 +783,32 @@ export const useGameStore = create<CoupleGameState>()(
         },
         startGame: () => {
           const state = get();
+
+          if (state.entryMode === "online") {
+            if (state.onlineRole !== "male") {
+              set({ onlineError: "Only the host can start the room match." });
+              return;
+            }
+
+            if (!state.onlineRoom || state.onlineRoom.playerCount < 2) {
+              set({ onlineError: "Two players need to be in the room before the match can start." });
+              return;
+            }
+          }
+
           const names = defaultNames(state.players);
+          const nextPlayers = createFreshPlayers(names);
+          const nextLogs = [
+            {
+              id: createLogId(),
+              text: `${getDisplayName("male", names.male)} rolls first on the shared board.`,
+              tone: "success" as const,
+            },
+          ];
 
           set({
             screen: "playing",
-            players: createFreshPlayers(names),
+            players: nextPlayers,
             currentTurn: "male",
             pendingTask: null,
             queuedTask: null,
@@ -754,16 +824,39 @@ export const useGameStore = create<CoupleGameState>()(
               female: false,
             },
             logs: [
-              {
-                id: createLogId(),
-                text: `${getDisplayName("male", names.male)} rolls first on the shared board.`,
-                tone: "success",
-              },
+              ...nextLogs,
             ],
           });
 
           if (state.entryMode === "online" && state.onlineRoom) {
-            syncMatchSnapshot("playing");
+            void syncStoredRoom({
+              started: true,
+              phase: "playing",
+              playersOrder: defaultPlayersOrder(state.onlineRoom),
+              turnIndex: 0,
+              interactionPhase: "idle",
+              currentQuestion: null,
+              questionType: null,
+              actionBy: null,
+              matchSnapshot: null,
+            })
+              .then((synced) => {
+                if (!synced) {
+                  return;
+                }
+
+                set({
+                  onlineRoom: synced.room,
+                  onlineRole: synced.role,
+                  onlinePlayerId: synced.playerId,
+                });
+              })
+              .catch((error) => {
+                set({
+                  onlineError:
+                    error instanceof Error ? error.message : "Unable to start the room match.",
+                });
+              });
           }
         },
         restartMatch: () => {
@@ -996,6 +1089,7 @@ export const useGameStore = create<CoupleGameState>()(
         logsOpen: state.logsOpen,
         clearedPlayers: state.clearedPlayers,
         onlineSessionId: state.onlineSessionId,
+        onlinePlayerId: state.onlinePlayerId,
         onlineRoom: state.onlineRoom,
         onlineRole: state.onlineRole,
       }),

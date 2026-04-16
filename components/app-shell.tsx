@@ -9,6 +9,11 @@ import { ModeSelection } from "@/components/mode-selection";
 import { OnlineRoomHub } from "@/components/online-room-hub";
 import { PlayerSetup } from "@/components/player-setup";
 import { useGameStore } from "@/utils/game-store";
+import {
+  readPlayerSession,
+  subscribeToRoom,
+  unsubscribeFromRoom,
+} from "@/utils/online-room";
 
 function FloatingHearts() {
   return (
@@ -45,7 +50,7 @@ function FloatingHearts() {
 export function AppShell() {
   const screen = useGameStore((state) => state.screen);
   const entryMode = useGameStore((state) => state.entryMode);
-  const onlineRoom = useGameStore((state) => state.onlineRoom);
+  const onlineRoomId = useGameStore((state) => state.onlineRoom?.id ?? null);
   const startOfflineFlow = useGameStore((state) => state.startOfflineFlow);
   const startOnlineFlow = useGameStore((state) => state.startOnlineFlow);
   const setScreen = useGameStore((state) => state.setScreen);
@@ -55,28 +60,30 @@ export function AppShell() {
   const landing = screen === "landing";
 
   useEffect(() => {
-    if (!onlineRoom) {
+    if (!readPlayerSession()) {
       return;
     }
 
-    syncOnlineRoom();
+    void syncOnlineRoom({ silent: true });
+  }, [syncOnlineRoom]);
 
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key?.includes(onlineRoom.code)) {
-        syncOnlineRoom();
-      }
-    };
+  useEffect(() => {
+    if (!onlineRoomId) {
+      return;
+    }
+
+    const channel = subscribeToRoom(onlineRoomId, () => {
+      void syncOnlineRoom({ silent: true });
+    });
     const interval = window.setInterval(() => {
-      syncOnlineRoom();
-    }, 1200);
-
-    window.addEventListener("storage", handleStorage);
+      void syncOnlineRoom({ silent: true });
+    }, 2500);
 
     return () => {
-      window.removeEventListener("storage", handleStorage);
       window.clearInterval(interval);
+      void unsubscribeFromRoom(channel);
     };
-  }, [onlineRoom, syncOnlineRoom]);
+  }, [onlineRoomId, syncOnlineRoom]);
 
   return (
     <main
