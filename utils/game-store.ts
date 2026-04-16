@@ -262,8 +262,6 @@ function roomStatePatch(
 }
 
 function createInitialState(sessionId = createSessionId()) {
-  const storedSession = readPlayerSession();
-
   return {
     screen: "landing" as Screen,
     entryMode: "offline" as const,
@@ -294,10 +292,10 @@ function createInitialState(sessionId = createSessionId()) {
       female: false,
     },
     onlineSessionId: sessionId,
-    onlinePlayerId: storedSession?.playerId ?? null,
+    onlinePlayerId: null as string | null,
     onlineRoom: null as OnlineRoom | null,
     onlineRole: null as PlayerKey | null,
-    onlineRoomLoading: Boolean(storedSession),
+    onlineRoomLoading: false,
     onlineError: null as string | null,
   };
 }
@@ -456,10 +454,12 @@ export const useGameStore = create<CoupleGameState>()(
             onlineError: null,
           }),
         startOnlineFlow: () => {
+          const storedSession = readPlayerSession();
+
           set({
             screen: "online-room",
             entryMode: "online",
-            onlineRoomLoading: Boolean(readPlayerSession()),
+            onlineRoomLoading: Boolean(storedSession),
             onlineError: null,
           });
 
@@ -1068,6 +1068,7 @@ export const useGameStore = create<CoupleGameState>()(
     },
     {
       name: "couple-game-mvp",
+      skipHydration: true,
       partialize: (state) => ({
         screen: state.screen,
         entryMode: state.entryMode,

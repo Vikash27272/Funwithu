@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameBoard } from "@/components/game-board";
 import { GameSelection } from "@/components/game-selection";
@@ -48,6 +48,7 @@ function FloatingHearts() {
 }
 
 export function AppShell() {
+  const [storeReady, setStoreReady] = useState(false);
   const screen = useGameStore((state) => state.screen);
   const entryMode = useGameStore((state) => state.entryMode);
   const onlineRoomId = useGameStore((state) => state.onlineRoom?.id ?? null);
@@ -60,15 +61,35 @@ export function AppShell() {
   const landing = screen === "landing";
 
   useEffect(() => {
+    let active = true;
+
+    void Promise.resolve(useGameStore.persist.rehydrate())
+      .catch(() => null)
+      .finally(() => {
+        if (active) {
+          setStoreReady(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!storeReady) {
+      return;
+    }
+
     if (!readPlayerSession()) {
       return;
     }
 
     void syncOnlineRoom({ silent: true });
-  }, [syncOnlineRoom]);
+  }, [storeReady, syncOnlineRoom]);
 
   useEffect(() => {
-    if (!onlineRoomId) {
+    if (!storeReady || !onlineRoomId) {
       return;
     }
 
@@ -83,7 +104,7 @@ export function AppShell() {
       window.clearInterval(interval);
       void unsubscribeFromRoom(channel);
     };
-  }, [onlineRoomId, syncOnlineRoom]);
+  }, [onlineRoomId, storeReady, syncOnlineRoom]);
 
   return (
     <main
