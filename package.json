@@ -1,0 +1,31 @@
+{
+  "name": "couple-game-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.542.0",
+    "next": "^16.2.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "use-sound": "^5.0.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "eslint": "^9.36.0",
+    "eslint-config-next": "^16.2.3",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.3"
+  }
+}

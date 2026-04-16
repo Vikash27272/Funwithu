@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  --background: #07111f;
+  --foreground: #f5f7fb;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-body: "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;
+  --app-height: 100dvh;
+}
+
+html,
+body {
+  width: 100vw;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  background: #050102;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  min-width: 100vw;
+  min-height: var(--app-height);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), sans-serif;
+}
+
+body > * {
+  width: 100vw;
+  height: var(--app-height);
+  overflow: hidden;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+.font-display {
+  font-family: var(--font-display), serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  min-width: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input,
+textarea {
+  appearance: none;
+}
+
+::selection {
+  background: rgba(251, 113, 133, 0.28);
+  color: #fff7fb;
+}
+
+@keyframes home-card-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+  }
+
+  50% {
+    transform: translateY(-4px) scale(1.006);
+    box-shadow: 0 36px 110px rgba(0, 0, 0, 0.48);
+  }
+}
+
+@keyframes home-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: translateX(-50%) scale(0.98);
+  }
+
+  50% {
+    opacity: 0.94;
+    transform: translateX(-50%) scale(1.03);
+  }
+}
+
+.home-card-breathe {
+  animation: home-card-breathe 7s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, box-shadow;
+}
+
+.home-glow-pulse {
+  animation: home-glow-pulse 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
