@@ -60,6 +60,14 @@ export interface StoredPlayerSession {
   roomCode: string | null;
 }
 
+function normalizeSelectedGame(value: unknown): GameKey | null {
+  if (value === "dice-dare" || value === "truth-dare") {
+    return "dice-dare";
+  }
+
+  return null;
+}
+
 function canUseSessionStorage() {
   return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
 }
@@ -126,7 +134,7 @@ function parseStoredRoomState(data: unknown): StoredRoomState {
         ? candidate.question_type
         : null,
     action_by: normalizeNullableString(candidate.action_by),
-    selectedGame: candidate.selectedGame === "truth-dare" ? "truth-dare" : null,
+    selectedGame: normalizeSelectedGame(candidate.selectedGame),
     matchSnapshot:
       candidate.matchSnapshot && typeof candidate.matchSnapshot === "object"
         ? (candidate.matchSnapshot as OnlineMatchSnapshot)

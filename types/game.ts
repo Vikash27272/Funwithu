@@ -1,4 +1,11 @@
 export type PlayerKey = "male" | "female";
+export type CardRole = "leader" | "submissive";
+export type GameFlowState =
+  | "ROLL_DICE"
+  | "MOVE_PLAYER"
+  | "DRAW_CARD"
+  | "SHOW_CARD"
+  | "END_TURN";
 export type Screen =
   | "landing"
   | "setup"
@@ -6,19 +13,20 @@ export type Screen =
   | "game-select"
   | "mode-select"
   | "playing";
-export type GameKey = "truth-dare";
+export type GameKey = "dice-dare";
 export type ModeType = "preset" | "custom";
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 export type LogTone = "neutral" | "success" | "warning";
 export type OnlineRoomPhase = "lobby" | "mode-select" | "playing";
 export type OnlineInteractionPhase = "idle" | "question";
 
-export interface TaskRow {
+export interface TaskCard {
   id: string;
-  position: number;
-  task: string;
-  target: PlayerKey;
-  author: PlayerKey;
+  title: string;
+  description: string;
+  performer: PlayerKey;
+  role: CardRole;
+  image: string;
 }
 
 export interface PlayerState {
@@ -30,7 +38,8 @@ export interface PlayerState {
 
 export interface PendingTask {
   player: PlayerKey;
-  task: TaskRow;
+  position: number;
+  task: TaskCard;
 }
 
 export interface GameLog {
@@ -40,6 +49,7 @@ export interface GameLog {
 }
 
 export interface GameStateShape {
+  gameState: GameFlowState;
   currentPlayer: PlayerKey;
   players: Record<PlayerKey, Pick<PlayerState, "position" | "skipsUsed">>;
   openedCells: Record<number, boolean>;
@@ -58,8 +68,9 @@ export interface OnlineMatchSnapshot {
   mode: ModeType;
   difficulty: Difficulty;
   players: Record<PlayerKey, PlayerState>;
-  tasks: TaskRow[];
+  tasks: TaskCard[];
   currentTurn: PlayerKey;
+  gameState: GameFlowState;
   pendingTask: PendingTask | null;
   queuedTask: PendingTask | null;
   highlightedTile: number | null;

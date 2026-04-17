@@ -44,7 +44,7 @@ export function ModeSelection({ onBack }: ModeSelectionProps) {
         <div className="rounded-[1.5rem] border border-[#e7c2ca] bg-white/80 px-5 py-4 text-sm leading-7 text-[#85505c]">
           <span className="font-semibold text-[#6f2536]">{onlineRoom.name}</span> is live
           on room code <span className="font-semibold text-[#6f2536]">{onlineRoom.code}</span>.
-          Choose the difficulty and then start the shared dare match.
+          Choose the difficulty and then start the shared Dice & Dare match.
         </div>
       ) : null}
 

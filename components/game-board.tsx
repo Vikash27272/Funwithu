@@ -11,12 +11,6 @@ import { TaskEditor } from "@/components/task-editor";
 import { TaskPopup } from "@/components/task-popup";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { getSkipAllowance, getTrackRows } from "@/utils/game-logic";
-import {
-  pickOnlineQuestion,
-  readPlayerSession,
-  resetOnlineGame,
-  resolveOnlineAction,
-} from "@/utils/online-room";
 import { useGameStore } from "@/utils/game-store";
 import { vibrate } from "@/utils/haptics";
 
@@ -51,8 +45,10 @@ function PlayerPanel({
   const theme =
     role === "queen"
       ? {
-          image: "/images/profiles/female-sample-profile.jpg",
+          image: "/images/usage/player-panels/queen-player-card__required-1600x340.jpg",
+          imagePosition: "42% 28%",
           border: active ? "border-[#f3bcc9]" : "border-[#efcdd6]",
+          surface: "bg-[rgba(86,13,31,0.32)]",
           glow: active
             ? "0 24px 46px rgba(196,59,96,0.28)"
             : "0 18px 40px rgba(89,32,44,0.14)",
@@ -60,11 +56,12 @@ function PlayerPanel({
             "bg-[linear-gradient(180deg,rgba(145,17,52,0.14),rgba(120,22,45,0.50)_58%,rgba(86,13,31,0.78)_100%)]",
           chip: "bg-[linear-gradient(135deg,rgba(255,245,247,0.82),rgba(255,224,232,0.74))] text-[#b43d5d] border-[#f3cad4]",
           meta: "text-[#ffe6ee]",
-          value: "text-white",
         }
       : {
-          image: "/images/profiles/male-sample-profile.jpg",
+          image: "/images/usage/player-panels/king-player-card__required-1600x340.jpg",
+          imagePosition: "74% 26%",
           border: active ? "border-[#bed7ff]" : "border-[#d4e2fb]",
+          surface: "bg-[rgba(16,31,76,0.28)]",
           glow: active
             ? "0 24px 46px rgba(58,112,228,0.28)"
             : "0 18px 40px rgba(41,57,94,0.14)",
@@ -72,7 +69,6 @@ function PlayerPanel({
             "bg-[linear-gradient(180deg,rgba(21,74,182,0.12),rgba(22,55,124,0.48)_58%,rgba(16,31,76,0.76)_100%)]",
           chip: "bg-[linear-gradient(135deg,rgba(246,250,255,0.84),rgba(227,238,255,0.76))] text-[#3a70e4] border-[#cfe0ff]",
           meta: "text-[#e4eeff]",
-          value: "text-white",
         };
 
   return (
@@ -95,34 +91,41 @@ function PlayerPanel({
         ease: "easeInOut",
       }}
       style={{ boxShadow: theme.glow }}
-      className={`relative min-h-[8.1rem] overflow-hidden rounded-[1.5rem] border text-center backdrop-blur-xl sm:min-h-[9rem] sm:rounded-[1.7rem] ${theme.border}`}
+      className={`relative min-h-[9rem] overflow-hidden rounded-[1.4rem] border text-left backdrop-blur-xl sm:min-h-[9.5rem] sm:rounded-[1.7rem] lg:min-h-[10.5rem] ${theme.border} ${theme.surface}`}
     >
-      <Image
-        src={theme.image}
-        alt={`${role} sample profile background`}
-        fill
-        unoptimized
-        sizes="(max-width: 640px) 36vw, 18vw"
-        className="object-cover"
-      />
+      <div className="absolute inset-1.5 sm:inset-2">
+        <Image
+          src={theme.image}
+          alt={`${role} sample profile background`}
+          fill
+          unoptimized
+          loading="eager"
+          sizes="(max-width: 640px) 42vw, (max-width: 1024px) 36vw, 24vw"
+          className="object-cover"
+          style={{ objectPosition: theme.imagePosition }}
+        />
+      </div>
       <div className={`absolute inset-0 ${theme.overlay}`} />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.05),transparent_34%)]" />
 
-      <div className="relative flex h-full flex-col justify-between px-3 py-3 sm:px-4 sm:py-3.5">
-        <div className="flex items-center gap-2.5 rounded-[1rem] border border-white/18 bg-black/10 px-2.5 py-2 backdrop-blur-[6px]">
-          <span className="text-xl sm:text-2xl">{icon}</span>
-          <p className="truncate font-display text-xl leading-none text-white sm:text-3xl">
-            {name}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <div
-            className={`mx-auto inline-flex min-w-[3.25rem] items-center justify-center rounded-full border px-3 py-1 text-[0.82rem] font-semibold tracking-[0.22em] shadow-[0_8px_18px_rgba(18,9,14,0.16)] sm:min-w-[3.6rem] sm:text-[0.9rem] ${theme.chip}`}
-          >
-            {position}
+      <div className="relative flex h-full flex-col px-2.5 py-2.5 sm:px-4 sm:py-3.5">
+        <div className="flex flex-col items-start gap-2">
+          <div className="flex w-fit max-w-full self-start items-center gap-2 rounded-[1rem] border border-white/18 bg-black/14 px-2.5 py-2 pr-3 backdrop-blur-[8px]">
+            <span className="text-base sm:text-xl">{icon}</span>
+            <p className="truncate font-display text-lg leading-none text-white sm:text-[1.7rem] lg:text-[2rem]">
+              {name}
+            </p>
+            <span
+              className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border px-2.5 text-base font-bold leading-none shadow-[0_8px_18px_rgba(18,9,14,0.16)] sm:h-9 sm:min-w-9 sm:text-lg lg:h-10 lg:min-w-10 lg:text-xl ${theme.chip}`}
+              aria-label={`Tile ${position}`}
+            >
+              {position}
+            </span>
           </div>
-          <p className={`text-lg tracking-[0.06em] sm:text-2xl ${theme.meta}`}>
+
+          <p
+            className={`rounded-full border border-white/14 bg-black/10 px-3 py-1 text-sm tracking-[0.08em] backdrop-blur-[6px] sm:text-base lg:text-lg ${theme.meta}`}
+          >
             {getSkipDisplay(skipsUsed, maxSkips)}
           </p>
         </div>
@@ -150,16 +153,29 @@ function SharedBoard({
     <div className="h-full w-full">
       <BoardWrapper>
         <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,248,249,0.52))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_16px_36px_rgba(127,29,45,0.08)] sm:p-4">
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1.65rem] border border-white/75 shadow-[0_18px_36px_rgba(127,29,45,0.12)]">
-            <Image
-              src="/images/board-shared-background.jpg"
-              alt="Romantic shared board background"
-              fill
-              priority
-              unoptimized
-              sizes="100vw"
-              className="object-cover"
-            />
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1.65rem] border border-white/75 bg-[rgba(34,10,16,0.18)] shadow-[0_18px_36px_rgba(127,29,45,0.12)]">
+            <div className="absolute inset-0 overflow-hidden">
+              <Image
+                src="/images/usage/board/shared-board-background__required-2400x520.jpg"
+                alt=""
+                fill
+                aria-hidden="true"
+                unoptimized
+                sizes="100vw"
+                className="object-cover object-center opacity-72 blur-[10px]"
+              />
+            </div>
+            <div className="absolute inset-2 sm:inset-3">
+              <Image
+                src="/images/usage/board/shared-board-background__required-2400x520.jpg"
+                alt="Romantic shared board background"
+                fill
+                priority
+                unoptimized
+                sizes="100vw"
+                className="object-contain object-center"
+              />
+            </div>
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))]" />
             <LayoutGroup id="shared-board">
               <div className="relative grid h-full w-full grid-cols-10 grid-rows-5 gap-1 p-1.5 sm:gap-1.5 sm:p-2.5 lg:gap-2 lg:p-3">
@@ -199,6 +215,7 @@ export function GameBoard() {
   const onlineRoom = useGameStore((state) => state.onlineRoom);
   const onlinePlayerId = useGameStore((state) => state.onlinePlayerId);
   const currentTurn = useGameStore((state) => state.currentTurn);
+  const gameState = useGameStore((state) => state.gameState);
   const pendingTask = useGameStore((state) => state.pendingTask);
   const queuedTask = useGameStore((state) => state.queuedTask);
   const highlightedTile = useGameStore((state) => state.highlightedTile);
@@ -211,6 +228,7 @@ export function GameBoard() {
   const clearedPlayers = useGameStore((state) => state.clearedPlayers);
   const resolveRoll = useGameStore((state) => state.resolveRoll);
   const finishLandingSequence = useGameStore((state) => state.finishLandingSequence);
+  const revealDrawnTask = useGameStore((state) => state.revealDrawnTask);
   const resolvePendingTask = useGameStore((state) => state.resolvePendingTask);
   const continueAfterWin = useGameStore((state) => state.continueAfterWin);
   const toggleLogs = useGameStore((state) => state.toggleLogs);
@@ -218,90 +236,20 @@ export function GameBoard() {
   const resetExperience = useGameStore((state) => state.resetExperience);
   const leaveOnlineRoom = useGameStore((state) => state.leaveOnlineRoom);
   const restartMatch = useGameStore((state) => state.restartMatch);
-  const syncOnlineRoom = useGameStore((state) => state.syncOnlineRoom);
   const [exitOpen, setExitOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState<null | "truth" | "dare" | "accept" | "skip">(null);
-  const [replayRequested, setReplayRequested] = useState(false);
-  const [replayError, setReplayError] = useState<string | null>(null);
   const lastLandingCueRef = useRef<string | null>(null);
   const lastCardCueRef = useRef<string | null>(null);
   const currentTurnPlayerId = onlineRoom?.playersOrder?.[onlineRoom.turnIndex] ?? null;
-  const interactionPhase = onlineRoom?.interactionPhase ?? "idle";
-  const currentQuestion = onlineRoom?.currentQuestion;
-  const questionType = onlineRoom?.questionType;
-  const roomGameOver = entryMode === "online" && Boolean(onlineRoom?.gameOver);
   const isMyTurn =
     entryMode === "online" && onlinePlayerId
       ? currentTurnPlayerId === onlinePlayerId
       : true;
-  const showOnlineQuestion = interactionPhase === "question" && Boolean(currentQuestion);
-
-  const runOnlineAction = async (
-    action: "truth" | "dare" | "accept" | "skip",
-  ) => {
-    if (entryMode !== "online" || actionLoading || roomGameOver) {
-      return;
-    }
-
-    const session = readPlayerSession();
-    const roomId = session?.roomId ?? onlineRoom?.id ?? null;
-    const playerId = session?.playerId ?? onlinePlayerId ?? null;
-
-    if (!roomId || !playerId) {
-      return;
-    }
-
-    if ((action === "truth" || action === "dare") && (!isMyTurn || interactionPhase !== "idle")) {
-      return;
-    }
-
-    if ((action === "accept" || action === "skip") && (isMyTurn || interactionPhase !== "question")) {
-      return;
-    }
-
-    setActionLoading(action);
-
-    try {
-      if (action === "truth" || action === "dare") {
-        await pickOnlineQuestion({ roomId, playerId, type: action });
-      } else {
-        await resolveOnlineAction({ roomId, playerId, decision: action });
-      }
-
-      await syncOnlineRoom({ silent: true });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unable to update the online action.";
-      console.log("Action error:", message);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleReplay = async () => {
-    if (entryMode !== "online" || replayRequested) {
-      return;
-    }
-
-    const session = readPlayerSession();
-    const roomId = session?.roomId ?? onlineRoom?.id ?? null;
-
-    if (!roomId) {
-      return;
-    }
-
-    setReplayRequested(true);
-    setReplayError(null);
-
-    try {
-      await resetOnlineGame(roomId);
-    } catch (error) {
-      setReplayRequested(false);
-      setReplayError(
-        error instanceof Error ? error.message : "Unable to restart the room right now.",
-      );
-    }
-  };
+  const canResolveTask = entryMode === "offline" || isMyTurn;
+  const canControlWinnerModal = entryMode === "offline" || isMyTurn;
+  const taskFooterNote =
+    entryMode === "online" && !isMyTurn
+      ? "Waiting for your partner to finish this challenge."
+      : null;
 
   useEffect(() => {
     if (!highlightedTile) {
@@ -315,7 +263,21 @@ export function GameBoard() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [finishLandingSequence, highlightedTile, queuedTask]);
+  }, [finishLandingSequence, highlightedTile]);
+
+  useEffect(() => {
+    if (gameState !== "DRAW_CARD" || !queuedTask) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      revealDrawnTask();
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [gameState, queuedTask, revealDrawnTask]);
 
   useEffect(() => {
     if (highlightedTile === null || highlightedPlayer === null) {
@@ -380,18 +342,35 @@ export function GameBoard() {
     };
   }, [pendingTask, playCard]);
 
-  useEffect(() => {
-    if (roomGameOver) {
-      return;
-    }
-
-    setReplayRequested(false);
-    setReplayError(null);
-  }, [roomGameOver]);
+  const boardStatus =
+    entryMode === "online"
+      ? winner
+        ? isMyTurn
+          ? "You won the round"
+          : "Partner won the round"
+        : gameState === "SHOW_CARD" && pendingTask
+          ? isMyTurn
+            ? "Resolve the drawn card"
+            : "Partner is resolving the drawn card"
+          : gameState === "MOVE_PLAYER" || gameState === "DRAW_CARD"
+            ? isMyTurn
+              ? "Landing and drawing a card"
+              : "Partner is landing on the board"
+          : isMyTurn
+            ? "Your turn to roll"
+            : "Partner's turn"
+      : winner
+        ? `${players[winner].name} won the round`
+        : gameState === "SHOW_CARD" && pendingTask
+          ? `${players[pendingTask.player].name} drew a card`
+          : gameState === "MOVE_PLAYER" || gameState === "DRAW_CARD"
+            ? `${players[currentTurn].name} is moving`
+            : `${players[currentTurn].name}'s turn`;
 
   return (
     <>
-      <div className="relative flex h-[var(--app-height,100dvh)] w-full max-w-full min-w-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_22%),linear-gradient(180deg,#6f1226_0%,#8d1d33_16%,#fdf7f8_16%,#fffafb_100%)] px-3 py-3 sm:px-4 sm:py-4">
+      <div className="relative flex min-h-[var(--app-height,100dvh)] w-full max-w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_22%),linear-gradient(180deg,#6f1226_0%,#8d1d33_16%,#fdf7f8_16%,#fffafb_100%)] px-3 py-3 sm:px-4 sm:py-4">
+        <div className="mx-auto flex w-full max-w-[112rem] flex-col">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {entryMode === "offline" ? (
@@ -427,26 +406,16 @@ export function GameBoard() {
         </div>
 
         <div className="mb-3 rounded-[1.45rem] border border-white/55 bg-white/58 px-4 py-3 shadow-[0_20px_44px_rgba(127,29,45,0.12)] backdrop-blur-xl sm:rounded-[1.6rem] sm:px-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <p className="text-[10px] uppercase tracking-[0.24em] text-[#a05e6a] sm:text-[11px]">
                 Shared Board
               </p>
               <p className="mt-1 text-sm font-semibold text-[#59202c] sm:text-base">
-                {entryMode === "online"
-                  ? interactionPhase === "idle"
-                    ? isMyTurn
-                      ? "Your Turn"
-                      : "Partner is choosing..."
-                    : isMyTurn
-                      ? "Perform the task!"
-                      : "Judge the result"
-                  : currentTurn === "female"
-                    ? `${players.female.name}'s turn`
-                    : `${players.male.name}'s turn`}
+                {boardStatus}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
               {entryMode === "online" && onlineRoom ? (
                 <div className="rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8d4858] sm:text-[11px]">
                   Room {onlineRoom.code}
@@ -459,92 +428,40 @@ export function GameBoard() {
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-white/55 bg-white/24 p-2 shadow-[0_26px_70px_rgba(127,29,45,0.16)] backdrop-blur-xl sm:rounded-[2.15rem] sm:p-3.5">
+        <div className="relative shrink-0 overflow-hidden rounded-[2rem] border border-white/55 bg-white/24 p-2 shadow-[0_26px_70px_rgba(127,29,45,0.16)] backdrop-blur-xl sm:rounded-[2.15rem] sm:p-3.5">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.35),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
-          <SharedBoard
-            femalePosition={players.female.position}
-            malePosition={players.male.position}
-            openedCells={openedCells}
-            highlightedTile={highlightedTile}
-            highlightedPlayer={highlightedPlayer}
-            activePlayer={currentTurn}
-          />
+          <div className="mx-auto h-[min(82vw,28rem)] w-full max-w-[96rem] sm:h-[min(68vw,34rem)] lg:h-[min(48vw,39rem)] xl:h-[min(42vw,42rem)]">
+            <SharedBoard
+              femalePosition={players.female.position}
+              malePosition={players.male.position}
+              openedCells={openedCells}
+              highlightedTile={highlightedTile}
+              highlightedPlayer={highlightedPlayer}
+              activePlayer={currentTurn}
+            />
+          </div>
         </div>
 
-        <div className="mt-3 rounded-[1.6rem] border border-white/55 bg-white/46 p-2.5 shadow-[0_20px_48px_rgba(127,29,45,0.12)] backdrop-blur-xl sm:p-3">
+        <div className="mt-3 shrink-0 rounded-[1.6rem] border border-white/55 bg-white/46 p-2.5 shadow-[0_20px_48px_rgba(127,29,45,0.12)] backdrop-blur-xl sm:p-3">
           {entryMode === "online" ? (
             <div className="mb-3 rounded-[1.35rem] border border-white/60 bg-white/72 px-4 py-3">
-              {interactionPhase === "idle" ? (
-                isMyTurn ? (
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-[#7f1d2d]">Your Turn</p>
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        onClick={() => void runOnlineAction("truth")}
-                        disabled={Boolean(actionLoading)}
-                        className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                      >
-                        {actionLoading === "truth" ? "Loading..." : "Truth"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void runOnlineAction("dare")}
-                        disabled={Boolean(actionLoading)}
-                        className="rounded-full border border-[#d7b0b9] bg-white px-5 py-2.5 text-sm font-semibold text-[#7f1d2d] disabled:cursor-wait disabled:opacity-70"
-                      >
-                        {actionLoading === "dare" ? "Loading..." : "Dare"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm font-medium text-[#85505c]">Waiting for partner...</p>
-                )
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a05e6a]">
-                      {questionType === "dare" ? "Dare" : "Truth"}
-                    </p>
-                    <p className="text-sm leading-7 text-[#59202c] sm:text-base">
-                      {currentQuestion ?? "Question unavailable right now."}
-                    </p>
-                  </div>
-
-                  {showOnlineQuestion ? (
-                    isMyTurn ? (
-                      <p className="text-sm font-semibold text-[#7f1d2d]">Perform the task!</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          type="button"
-                          onClick={() => void runOnlineAction("accept")}
-                          disabled={Boolean(actionLoading)}
-                          className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
-                        >
-                          {actionLoading === "accept" ? "Saving..." : "Accept"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void runOnlineAction("skip")}
-                          disabled={Boolean(actionLoading)}
-                          className="rounded-full border border-[#d7b0b9] bg-white px-5 py-2.5 text-sm font-semibold text-[#7f1d2d] disabled:cursor-wait disabled:opacity-70"
-                        >
-                          {actionLoading === "skip" ? "Saving..." : "Skip"}
-                        </button>
-                      </div>
-                    )
-                  ) : (
-                    <p className="text-sm font-medium text-[#85505c]">
-                      Waiting for the question to sync...
-                    </p>
-                  )}
-                </div>
-              )}
+              <p className="text-sm font-medium text-[#85505c]">
+                {gameState === "SHOW_CARD" && pendingTask
+                  ? isMyTurn
+                    ? "Finish the task card to pass the turn."
+                    : "Watching your partner's card resolve in real time."
+                  : gameState === "MOVE_PLAYER" || gameState === "DRAW_CARD"
+                    ? isMyTurn
+                      ? "Your move is landing. A random card is being drawn."
+                      : "Your partner is landing and drawing a card."
+                  : isMyTurn
+                    ? "Roll the dice to advance on the same shared board."
+                    : "Waiting for your partner to roll the dice."}
+              </p>
             </div>
           ) : null}
 
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2 sm:gap-3">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_4.75rem_minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[minmax(0,1fr)_5.75rem_minmax(0,1fr)] sm:gap-3 lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]">
             <PlayerPanel
               role="queen"
               name={players.female.name}
@@ -554,7 +471,7 @@ export function GameBoard() {
               active={currentTurn === "female" && !winner}
             />
 
-            <div className="flex min-w-[5.75rem] flex-col items-center justify-center gap-2 px-1 sm:min-w-[6.5rem]">
+            <div className="flex min-w-[4.75rem] flex-col items-center justify-center gap-2 px-1 sm:min-w-[5.75rem] lg:min-w-[7rem]">
               <div
                 className="overflow-visible"
                 style={{
@@ -565,10 +482,9 @@ export function GameBoard() {
                 <Dice
                   player={currentTurn}
                   disabled={
-                    entryMode === "online" ||
-                    Boolean(pendingTask) ||
-                    Boolean(queuedTask) ||
-                    Boolean(winner)
+                    gameState !== "ROLL_DICE" ||
+                    Boolean(winner) ||
+                    (entryMode === "online" && !isMyTurn)
                   }
                   onRollStart={() => {
                     vibrate("light");
@@ -578,7 +494,7 @@ export function GameBoard() {
                 />
               </div>
               <p
-                className={`text-center text-[11px] font-semibold uppercase tracking-[0.22em] sm:text-xs ${
+                className={`text-center text-[10px] font-semibold uppercase tracking-[0.18em] sm:text-xs ${
                   winner === "male" || (!winner && currentTurn === "male")
                     ? "text-[#2d55cc]"
                     : "text-[#8f4153]"
@@ -586,11 +502,11 @@ export function GameBoard() {
               >
                 {winner
                   ? winner === "female"
-                    ? "Female Wins"
-                    : "Male Wins"
+                    ? "Queen Wins"
+                    : "King Wins"
                   : currentTurn === "female"
-                    ? "Female Turn"
-                    : "Male Turn"}
+                    ? "Queen Turn"
+                    : "King Turn"}
               </p>
             </div>
 
@@ -604,65 +520,27 @@ export function GameBoard() {
             />
           </div>
         </div>
+        </div>
       </div>
 
-      {entryMode === "offline" ? (
-        <TaskPopup
-          pendingTask={pendingTask}
-          players={players}
-          clearedPlayers={clearedPlayers}
-          onAccept={() => resolvePendingTask("accept")}
-          onSkip={() => resolvePendingTask("skip")}
-        />
-      ) : null}
-
-      <AnimatePresence>
-        {roomGameOver ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(18,3,7,0.42)] p-4 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 18 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: 12 }}
-              className="w-full max-w-lg rounded-[2rem] border border-white/60 bg-[linear-gradient(180deg,rgba(255,251,252,0.94),rgba(255,240,244,0.90))] px-6 py-10 text-center shadow-[0_30px_90px_rgba(88,18,33,0.18)] backdrop-blur-xl sm:px-8"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#a05e6a]">
-                Session Complete
-              </p>
-              <h3 className="mt-4 font-display text-[clamp(2.5rem,7vw,4.4rem)] leading-none text-[#5f1626]">
-                Hope you enjoyed!
-              </h3>
-              <p className="mt-4 text-base leading-8 text-[#6b3846] sm:text-lg">
-                That was fun {"\u{1F60A}"}
-                <br />
-                Let&apos;s play again?
-              </p>
-
-              {replayRequested ? (
-                <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-[#8f4153]">
-                  Restarting room...
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void handleReplay()}
-                  className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-7 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(127,29,45,0.22)]"
-                >
-                  Play Again {"\u{1F501}"}
-                </button>
-              )}
-
-              {replayError ? (
-                <p className="mt-4 text-sm leading-6 text-[#8f4153]">{replayError}</p>
-              ) : null}
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <TaskPopup
+        pendingTask={pendingTask}
+        players={players}
+        clearedPlayers={clearedPlayers}
+        onAccept={() => {
+          if (canResolveTask) {
+            resolvePendingTask("accept");
+          }
+        }}
+        onSkip={() => {
+          if (canResolveTask) {
+            resolvePendingTask("skip");
+          }
+        }}
+        acceptDisabled={!canResolveTask}
+        skipDisabled={!canResolveTask}
+        footerNote={taskFooterNote}
+      />
 
       <AnimatePresence>
         {winner ? (
@@ -682,7 +560,7 @@ export function GameBoard() {
                 Round Winner
               </p>
               <h3 className="mt-3 font-display text-4xl text-[#5f1626]">
-                {winner === "female" ? "Female Won" : "Male Won"}
+                {winner === "female" ? `${players.female.name} Won` : `${players.male.name} Won`}
               </h3>
               <p className="mt-4 text-sm leading-7 text-[#6b3846] sm:text-base">
                 Continue the game to unlock reward mode. The winner gets 3 skips
@@ -692,18 +570,25 @@ export function GameBoard() {
                 <button
                   type="button"
                   onClick={continueAfterWin}
-                  className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-5 py-3 text-sm font-semibold text-white"
+                  disabled={!canControlWinnerModal}
+                  className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   Continue Game
                 </button>
                 <button
                   type="button"
                   onClick={restartMatch}
-                  className="rounded-full border border-[#ebccd2] bg-white/84 px-5 py-3 text-sm font-semibold text-[#8a4353] backdrop-blur-md"
+                  disabled={!canControlWinnerModal}
+                  className="rounded-full border border-[#ebccd2] bg-white/84 px-5 py-3 text-sm font-semibold text-[#8a4353] backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   New Round
                 </button>
               </div>
+              {entryMode === "online" && !canControlWinnerModal ? (
+                <p className="mt-4 text-sm leading-6 text-[#8f4153]">
+                  Waiting for the winning player to choose the next step.
+                </p>
+              ) : null}
             </motion.div>
           </motion.div>
         ) : null}

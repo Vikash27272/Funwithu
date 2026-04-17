@@ -37,10 +37,10 @@ export function GameSelection({ onBack }: GameSelectionProps) {
   const roomReady = (onlineRoom?.playerCount ?? roomPlayers.length) >= 2;
   const gameCards = [
     {
-      title: "Dare Game",
-      shortLine: "Fast turns on one shared board.",
+      title: "Dice & Dare",
+      shortLine: "One shared board, one dice-driven flow.",
       icon: PartyPopper,
-      action: () => selectGame("truth-dare"),
+      action: () => selectGame("dice-dare"),
       disabled: false,
       status: "Play Now",
       highlight: "Live",
