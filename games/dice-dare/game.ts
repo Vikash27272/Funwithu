@@ -63,32 +63,53 @@ function appendLog(
   return [{ id: createLogId(), text, tone }, ...logs].slice(0, 18);
 }
 
-function drawRandomTask(tasks: TaskCard[]): TaskCard | null {
+function drawNextTask(tasks: TaskCard[]): { task: TaskCard | null; nextTasks: TaskCard[] } {
   if (tasks.length === 0) {
-    return null;
+    return {
+      task: null,
+      nextTasks: tasks,
+    };
   }
 
-  return tasks[Math.floor(Math.random() * tasks.length)] ?? null;
+  const [nextTask, ...remainingTasks] = tasks;
+
+  if (!nextTask) {
+    return {
+      task: null,
+      nextTasks: tasks,
+    };
+  }
+
+  return {
+    task: nextTask,
+    nextTasks: remainingTasks.length > 0 ? [...remainingTasks, nextTask] : tasks,
+  };
 }
 
 function queueLandingTask(
   state: DiceDareState,
   player: PlayerKey,
   nextPosition: number,
-): PendingTask | null {
+): { queuedTask: PendingTask | null; nextTasks: TaskCard[] } {
   if (state.clearedPlayers[player]) {
-    return null;
+    return {
+      queuedTask: null,
+      nextTasks: state.tasks,
+    };
   }
 
-  const task = drawRandomTask(state.tasks);
+  const { task, nextTasks } = drawNextTask(state.tasks);
 
-  return task
-    ? {
-        player,
-        position: nextPosition,
-        task,
-      }
-    : null;
+  return {
+    queuedTask: task
+      ? {
+          player,
+          position: nextPosition,
+          task,
+        }
+      : null,
+    nextTasks,
+  };
 }
 
 function resolveRoll(state: DiceDareState, player: PlayerKey, roll: number): DiceDareState {
@@ -110,12 +131,13 @@ function resolveRoll(state: DiceDareState, player: PlayerKey, roll: number): Dic
     roll,
     state.clearedPlayers[player],
   );
-  const queuedTask = queueLandingTask(state, player, moved.position);
+  const { queuedTask, nextTasks } = queueLandingTask(state, player, moved.position);
   const reachesFinish =
     moved.position >= MAX_POSITION && !state.clearedPlayers[player];
 
   return {
     ...state,
+    tasks: nextTasks,
     players: {
       ...state.players,
       [player]: {

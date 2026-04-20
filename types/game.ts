@@ -1,5 +1,6 @@
 export type PlayerKey = "male" | "female";
 export type CardRole = "leader" | "submissive";
+export type DeckLevel = "easy" | "fun" | "medium" | "hard" | "extreme";
 export type GameFlowState =
   | "ROLL_DICE"
   | "MOVE_PLAYER"
@@ -10,15 +11,13 @@ export type Screen =
   | "landing"
   | "setup"
   | "online-room"
-  | "game-select"
   | "mode-select"
   | "playing";
 export type GameKey = "dice-dare";
-export type ModeType = "preset" | "custom";
+export type ModeType = "preset";
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 export type LogTone = "neutral" | "success" | "warning";
 export type OnlineRoomPhase = "lobby" | "mode-select" | "playing";
-export type OnlineInteractionPhase = "idle" | "question";
 
 export interface TaskCard {
   id: string;
@@ -27,6 +26,9 @@ export interface TaskCard {
   performer: PlayerKey;
   role: CardRole;
   image: string;
+  level?: DeckLevel;
+  category?: string;
+  points?: number;
 }
 
 export interface PlayerState {
@@ -93,10 +95,6 @@ export interface OnlineRoom {
   started: boolean;
   playersOrder: string[];
   turnIndex: number;
-  interactionPhase: OnlineInteractionPhase | null;
-  currentQuestion: string | null;
-  questionType: "truth" | "dare" | null;
-  actionBy: string | null;
   selectedGame: GameKey | null;
   phase: OnlineRoomPhase;
   players: Record<PlayerKey, OnlineRoomPlayer | null>;

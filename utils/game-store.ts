@@ -64,7 +64,6 @@ interface CoupleGameState {
   diceValue: number | null;
   winner: PlayerKey | null;
   logs: GameLog[];
-  editorOpen: boolean;
   logsOpen: boolean;
   clearedPlayers: Record<PlayerKey, boolean>;
   onlineSessionId: string;
@@ -81,24 +80,16 @@ interface CoupleGameState {
   clearOnlineError: () => void;
   leaveOnlineRoom: (destination?: Screen) => void;
   setScreen: (screen: Screen) => void;
-  setMode: (mode: ModeType) => void;
   setDifficulty: (difficulty: Difficulty) => void;
-  selectGame: (game: GameKey) => void;
+  openMatchSetup: () => void;
   setPlayerNames: (maleName: string, femaleName: string) => void;
   rebuildTasks: (difficulty?: Difficulty) => void;
-  updateTaskCard: (
-    taskId: string,
-    patch: Partial<Pick<TaskCard, "title" | "description" | "performer" | "role" | "image">>,
-  ) => void;
-  bulkAssignTasks: (performer: PlayerKey, lines: string[]) => void;
-  importTasks: (rows: TaskCard[]) => void;
   startGame: () => void;
   restartMatch: () => void;
   resolveRoll: (player: PlayerKey, roll: number) => void;
   finishLandingSequence: () => void;
   revealDrawnTask: () => void;
   resolvePendingTask: (decision: "accept" | "skip") => void;
-  toggleEditor: (open?: boolean) => void;
   toggleLogs: (open?: boolean) => void;
   resetExperience: () => void;
   continueAfterWin: () => void;
@@ -133,6 +124,10 @@ function getOnlineNames(room: OnlineRoom | null): Record<PlayerKey, string> {
 }
 
 function screenForPhase(phase: OnlineRoomPhase): Screen {
+  if (phase === "lobby") {
+    return "online-room";
+  }
+
   if (phase === "mode-select") {
     return "mode-select";
   }
@@ -141,11 +136,15 @@ function screenForPhase(phase: OnlineRoomPhase): Screen {
     return "playing";
   }
 
-  return "game-select";
+  return "online-room";
 }
 
 function screenForRoom(room: OnlineRoom): Screen {
-  if (room.started) {
+  if (room.phase === "mode-select") {
+    return "mode-select";
+  }
+
+  if (room.phase === "playing" || room.started) {
     return "playing";
   }
 
@@ -155,7 +154,7 @@ function screenForRoom(room: OnlineRoom): Screen {
 function createSnapshotFromState(state: CoupleGameState): OnlineMatchSnapshot {
   return {
     ...createDiceDareState({
-      mode: state.mode,
+      mode: "preset",
       difficulty: state.difficulty,
       names: defaultNames(state.players),
       tasks: state.tasks,
@@ -210,7 +209,6 @@ function roomStatePatch(
   if (snapshot) {
     return {
       selectedGame: room.selectedGame ?? (DiceDareGame.id as GameKey),
-      mode: snapshot.mode,
       difficulty: snapshot.difficulty,
       players: snapshot.players,
       tasks: snapshot.tasks,
@@ -240,7 +238,7 @@ function roomStatePatch(
     currentTurn: turnRole ?? engineState.currentTurn,
     logs: appendLog(
       [],
-      "Room is ready. Host can choose Dice & Dare and start when both players join.",
+      "Room is ready. Host can choose the Dirty Dice difficulty and start when both players join.",
       "success",
     ),
   };
@@ -259,7 +257,6 @@ function createInitialState(sessionId = createSessionId()) {
     entryMode: "offline" as const,
     selectedGame: DICE_DARE_GAME_ID as GameKey,
     ...engineState,
-    editorOpen: false,
     logsOpen: false,
     onlineSessionId: sessionId,
     onlinePlayerId: null as string | null,
@@ -298,10 +295,6 @@ export const useGameStore = create<CoupleGameState>()(
             | "playersOrder"
             | "turnIndex"
             | "started"
-            | "interactionPhase"
-            | "currentQuestion"
-            | "questionType"
-            | "actionBy"
           >
         >,
       ) => {
@@ -340,20 +333,6 @@ export const useGameStore = create<CoupleGameState>()(
             latestRoom.playersOrder ??
             defaultPlayersOrder(latestRoom),
           turnIndex: patch?.turnIndex ?? latestRoom.turnIndex ?? 0,
-          interactionPhase:
-            patch && "interactionPhase" in patch
-              ? patch.interactionPhase ?? null
-              : latestRoom.interactionPhase ?? (latestRoom.started ? "idle" : null),
-          currentQuestion:
-            patch && "currentQuestion" in patch
-              ? patch.currentQuestion ?? null
-              : latestRoom.currentQuestion,
-          questionType:
-            patch && "questionType" in patch
-              ? patch.questionType ?? null
-              : latestRoom.questionType,
-          actionBy:
-            patch && "actionBy" in patch ? patch.actionBy ?? null : latestRoom.actionBy,
           started:
             patch?.started ??
             (patch && ("phase" in patch || "matchSnapshot" in patch)
@@ -379,10 +358,6 @@ export const useGameStore = create<CoupleGameState>()(
               Boolean(nextRoom.matchSnapshot),
             playersOrder: nextRoom.playersOrder,
             turnIndex: nextRoom.turnIndex,
-            interactionPhase: nextRoom.interactionPhase,
-            currentQuestion: nextRoom.currentQuestion,
-            questionType: nextRoom.questionType,
-            actionBy: nextRoom.actionBy,
             phase: nextRoom.phase,
             selectedGame: nextRoom.selectedGame,
             matchSnapshot: nextRoom.matchSnapshot,
@@ -402,10 +377,6 @@ export const useGameStore = create<CoupleGameState>()(
 
         void syncStoredRoom({
           phase: phase ?? state.onlineRoom.phase,
-          interactionPhase: null,
-          currentQuestion: null,
-          questionType: null,
-          actionBy: null,
           matchSnapshot: createSnapshotFromState(state),
         })
           .then((synced) => {
@@ -582,27 +553,10 @@ export const useGameStore = create<CoupleGameState>()(
           });
         },
         setScreen: (screen) => set({ screen }),
-        setMode: (mode) => {
-          const state = get();
-
-          set({
-            mode,
-            tasks:
-              mode === "custom" && state.tasks.length > 0
-                ? state.tasks
-                : buildTaskDeck(state.difficulty),
-          });
-
-          const latestState = get();
-
-          if (latestState.entryMode === "online" && latestState.onlineRoom) {
-            syncMatchSnapshot(latestState.onlineRoom.phase);
-          }
-        },
         setDifficulty: (difficulty) => {
           set({
-            difficulty,
             mode: "preset",
+            difficulty,
             tasks: buildTaskDeck(difficulty),
           });
 
@@ -612,18 +566,19 @@ export const useGameStore = create<CoupleGameState>()(
             syncMatchSnapshot(latestState.onlineRoom.phase);
           }
         },
-        selectGame: (game) => {
+        openMatchSetup: () => {
           const state = get();
 
           if (state.entryMode === "online" && state.onlineRoom) {
             if (state.onlineRole !== "male") {
-              set({ onlineError: "Only the room admin can pick the game for this room." });
+              set({ onlineError: "Only the room admin can open the Dirty Dice setup." });
               return;
             }
 
             void syncStoredRoom({
-              selectedGame: game,
+              selectedGame: DICE_DARE_GAME_ID as GameKey,
               phase: "mode-select",
+              started: false,
             })
               .then((synced) => {
                 if (!synced) {
@@ -631,7 +586,7 @@ export const useGameStore = create<CoupleGameState>()(
                 }
 
                 set({
-                  selectedGame: game,
+                  selectedGame: DICE_DARE_GAME_ID as GameKey,
                   screen: "mode-select",
                   onlineRoom: synced.room,
                   onlineRole: synced.role,
@@ -649,7 +604,7 @@ export const useGameStore = create<CoupleGameState>()(
             return;
           }
 
-          set({ selectedGame: game, screen: "mode-select" });
+          set({ selectedGame: DICE_DARE_GAME_ID as GameKey, screen: "mode-select" });
         },
         setPlayerNames: (maleName, femaleName) => {
           const trimmedNames = {
@@ -683,79 +638,6 @@ export const useGameStore = create<CoupleGameState>()(
             syncMatchSnapshot(latestState.onlineRoom.phase);
           }
         },
-        updateTaskCard: (taskId, patch) => {
-          set((state) => ({
-            tasks: state.tasks.map((row) =>
-              row.id === taskId ? { ...row, ...patch } : row,
-            ),
-          }));
-
-          const state = get();
-
-          if (state.entryMode === "online" && state.onlineRoom) {
-            syncMatchSnapshot(state.onlineRoom.phase);
-          }
-        },
-        bulkAssignTasks: (performer, lines) => {
-          set((state) => {
-            const sanitized = lines.map((line) => line.trim()).filter(Boolean);
-
-            if (sanitized.length === 0) {
-              return state;
-            }
-
-            const performerRows = state.tasks.filter((row) => row.performer === performer);
-            const updates = new Map<string, string>();
-
-            performerRows.forEach((row, index) => {
-              const replacement = sanitized[index];
-
-              if (replacement) {
-                updates.set(row.id, replacement);
-              }
-            });
-
-            return {
-              tasks: state.tasks.map((row) =>
-                updates.has(row.id)
-                  ? { ...row, description: updates.get(row.id) ?? row.description }
-                : row,
-              ),
-            };
-          });
-
-          const state = get();
-
-          if (state.entryMode === "online" && state.onlineRoom) {
-            syncMatchSnapshot(state.onlineRoom.phase);
-          }
-        },
-        importTasks: (rows) => {
-          set((state) => {
-            const sanitized = rows
-              .map((row, index) => ({
-                id: row.id?.trim() || `imported-card-${index + 1}`,
-                title: row.title.trim(),
-                description: row.description.trim(),
-                performer: row.performer,
-                role: row.role,
-                image: row.image.trim(),
-              }))
-              .filter((row) => row.title && row.description);
-
-            if (sanitized.length === 0) {
-              return state;
-            }
-
-            return { tasks: sanitized };
-          });
-
-          const state = get();
-
-          if (state.entryMode === "online" && state.onlineRoom) {
-            syncMatchSnapshot(state.onlineRoom.phase);
-          }
-        },
         startGame: () => {
           const state = get();
 
@@ -773,7 +655,7 @@ export const useGameStore = create<CoupleGameState>()(
 
           const names = defaultNames(state.players);
           const nextMatch = DiceDareGame.init({
-            mode: state.mode,
+            mode: "preset",
             difficulty: state.difficulty,
             names,
             tasks: state.tasks,
@@ -794,7 +676,6 @@ export const useGameStore = create<CoupleGameState>()(
             openedCells: nextMatch.openedCells,
             diceValue: nextMatch.diceValue,
             winner: nextMatch.winner,
-            editorOpen: false,
             logsOpen: false,
             clearedPlayers: nextMatch.clearedPlayers,
             logs: nextMatch.logs,
@@ -806,10 +687,6 @@ export const useGameStore = create<CoupleGameState>()(
               phase: "playing",
               playersOrder: defaultPlayersOrder(state.onlineRoom),
               turnIndex: 0,
-              interactionPhase: null,
-              currentQuestion: null,
-              questionType: null,
-              actionBy: null,
               matchSnapshot: nextMatch,
             })
               .then((synced) => {
@@ -835,7 +712,7 @@ export const useGameStore = create<CoupleGameState>()(
           const state = get();
           const names = defaultNames(state.players);
           const nextMatch = DiceDareGame.init({
-            mode: state.mode,
+            mode: "preset",
             difficulty: state.difficulty,
             names,
             tasks: state.tasks,
@@ -855,7 +732,6 @@ export const useGameStore = create<CoupleGameState>()(
             openedCells: nextMatch.openedCells,
             diceValue: nextMatch.diceValue,
             winner: nextMatch.winner,
-            editorOpen: false,
             logsOpen: false,
             clearedPlayers: nextMatch.clearedPlayers,
             logs: [
@@ -899,10 +775,6 @@ export const useGameStore = create<CoupleGameState>()(
             type: "CONTINUE_AFTER_WIN",
           });
         },
-        toggleEditor: (open) =>
-          set((state) => ({
-            editorOpen: open ?? !state.editorOpen,
-          })),
         toggleLogs: (open) =>
           set((state) => ({
             logsOpen: open ?? !state.logsOpen,
@@ -915,10 +787,10 @@ export const useGameStore = create<CoupleGameState>()(
     },
     {
       name: "couple-game-mvp",
-      version: 2,
+      version: 3,
       skipHydration: true,
       migrate: (persistedState, version) => {
-        if (version < 2) {
+        if (version < 3) {
           const legacyState = persistedState as Partial<CoupleGameState> | undefined;
           return createInitialState(legacyState?.onlineSessionId);
         }
@@ -943,7 +815,6 @@ export const useGameStore = create<CoupleGameState>()(
         diceValue: state.diceValue,
         winner: state.winner,
         logs: state.logs,
-        editorOpen: state.editorOpen,
         logsOpen: state.logsOpen,
         clearedPlayers: state.clearedPlayers,
         onlineSessionId: state.onlineSessionId,

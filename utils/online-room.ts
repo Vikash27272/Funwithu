@@ -2,7 +2,6 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import type {
   GameKey,
   OnlineMatchSnapshot,
-  OnlineInteractionPhase,
   OnlineRoom,
   OnlineRoomPhase,
   PlayerKey,
@@ -45,10 +44,7 @@ interface StoredRoomState {
   started?: boolean;
   players_order?: string[];
   turn_index?: number;
-  phase?: OnlineRoomPhase | OnlineInteractionPhase;
-  current_question?: string | null;
-  question_type?: "truth" | "dare" | null;
-  action_by?: string | null;
+  phase?: OnlineRoomPhase;
   selectedGame?: GameKey | null;
   matchSnapshot?: OnlineMatchSnapshot | null;
 }
@@ -61,7 +57,7 @@ export interface StoredPlayerSession {
 }
 
 function normalizeSelectedGame(value: unknown): GameKey | null {
-  if (value === "dice-dare" || value === "truth-dare") {
+  if (value === "dice-dare") {
     return "dice-dare";
   }
 
@@ -89,20 +85,6 @@ function toTimestamp(value?: string | null) {
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
 
-function normalizeNullableString(value: unknown) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed || trimmed.toLowerCase() === "null") {
-    return null;
-  }
-
-  return trimmed;
-}
-
 function parseStoredRoomState(data: unknown): StoredRoomState {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return {};
@@ -123,17 +105,9 @@ function parseStoredRoomState(data: unknown): StoredRoomState {
     phase:
       candidate.phase === "lobby" ||
       candidate.phase === "mode-select" ||
-      candidate.phase === "playing" ||
-      candidate.phase === "idle" ||
-      candidate.phase === "question"
+      candidate.phase === "playing"
         ? candidate.phase
         : undefined,
-    current_question: normalizeNullableString(candidate.current_question),
-    question_type:
-      candidate.question_type === "truth" || candidate.question_type === "dare"
-        ? candidate.question_type
-        : null,
-    action_by: normalizeNullableString(candidate.action_by),
     selectedGame: normalizeSelectedGame(candidate.selectedGame),
     matchSnapshot:
       candidate.matchSnapshot && typeof candidate.matchSnapshot === "object"
@@ -151,16 +125,7 @@ function buildRoomFromRows(
     (left, right) => toTimestamp(left.joined_at) - toTimestamp(right.joined_at),
   );
   const storedState = parseStoredRoomState(gameState?.data);
-  const screenPhase =
-    storedState.phase === "lobby" ||
-    storedState.phase === "mode-select" ||
-    storedState.phase === "playing"
-      ? storedState.phase
-      : undefined;
-  const interactionPhase =
-    storedState.phase === "idle" || storedState.phase === "question"
-      ? storedState.phase
-      : undefined;
+  const screenPhase = storedState.phase;
   const mappedPlayers: OnlineRoom["players"] = {
     male: null,
     female: null,
@@ -196,17 +161,9 @@ function buildRoomFromRows(
     playerCount: orderedPlayers.length,
     started:
       storedState.started ??
-      (screenPhase === "mode-select" ||
-        screenPhase === "playing" ||
-        interactionPhase === "idle" ||
-        interactionPhase === "question" ||
-        Boolean(storedState.matchSnapshot)),
+      (screenPhase === "playing" || Boolean(storedState.matchSnapshot)),
     playersOrder: storedState.players_order ?? orderedPlayers.map((player) => player.id).slice(0, 2),
     turnIndex: storedState.turn_index ?? 0,
-    interactionPhase: interactionPhase ?? (storedState.started ? "idle" : null),
-    currentQuestion: storedState.current_question ?? null,
-    questionType: storedState.question_type ?? null,
-    actionBy: storedState.action_by ?? null,
     selectedGame: storedState.selectedGame ?? null,
     phase: screenPhase ?? (storedState.started ? "playing" : "lobby"),
     players: mappedPlayers,
@@ -407,10 +364,6 @@ export async function updateRoomState({
   started,
   playersOrder,
   turnIndex,
-  interactionPhase,
-  currentQuestion,
-  questionType,
-  actionBy,
   phase,
   selectedGame,
   matchSnapshot,
@@ -421,10 +374,6 @@ export async function updateRoomState({
   started: boolean;
   playersOrder: string[];
   turnIndex: number;
-  interactionPhase: OnlineInteractionPhase | null;
-  currentQuestion: string | null;
-  questionType: "truth" | "dare" | null;
-  actionBy: string | null;
   phase: OnlineRoomPhase;
   selectedGame: GameKey | null;
   matchSnapshot: OnlineMatchSnapshot | null;
@@ -439,76 +388,12 @@ export async function updateRoomState({
         started,
         players_order: playersOrder,
         turn_index: turnIndex,
-        phase: interactionPhase ?? phase,
-        current_question: currentQuestion,
-        question_type: questionType,
-        action_by: actionBy,
+        phase,
         selectedGame,
         matchSnapshot,
       } satisfies StoredRoomState,
     })
     .eq("room_id", roomId);
-
-  if (error) {
-    throw error;
-  }
-}
-
-export async function resetOnlineGame(roomId: string) {
-  const { error } = await supabase.rpc("reset_game", {
-    p_room_id: roomId,
-  });
-
-  if (error) {
-    throw error;
-  }
-}
-
-export async function switchOnlineTurn(roomId: string, playerId: string) {
-  const { error } = await supabase.rpc("switch_turn", {
-    p_room_id: roomId,
-    p_player_id: playerId,
-  });
-
-  if (error) {
-    throw error;
-  }
-}
-
-export async function pickOnlineQuestion({
-  roomId,
-  playerId,
-  type,
-}: {
-  roomId: string;
-  playerId: string;
-  type: "truth" | "dare";
-}) {
-  const { error } = await supabase.rpc("pick_question", {
-    p_room_id: roomId,
-    p_player_id: playerId,
-    p_type: type,
-  });
-
-  if (error) {
-    throw error;
-  }
-}
-
-export async function resolveOnlineAction({
-  roomId,
-  playerId,
-  decision,
-}: {
-  roomId: string;
-  playerId: string;
-  decision: "accept" | "skip";
-}) {
-  const { error } = await supabase.rpc("resolve_action", {
-    p_room_id: roomId,
-    p_player_id: playerId,
-    p_decision: decision,
-  });
 
   if (error) {
     throw error;

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { GameBoard } from "@/components/game-board";
-import { GameSelection } from "@/components/game-selection";
 import { LandingHero } from "@/components/landing-hero";
 import { ModeSelection } from "@/components/mode-selection";
 import { OnlineRoomHub } from "@/components/online-room-hub";
@@ -118,7 +117,6 @@ export function AppShell() {
   const startOfflineFlow = useGameStore((state) => state.startOfflineFlow);
   const startOnlineFlow = useGameStore((state) => state.startOnlineFlow);
   const setScreen = useGameStore((state) => state.setScreen);
-  const leaveOnlineRoom = useGameStore((state) => state.leaveOnlineRoom);
   const syncOnlineRoom = useGameStore((state) => state.syncOnlineRoom);
   const playing = screen === "playing";
   const landing = screen === "landing";
@@ -262,7 +260,7 @@ export function AppShell() {
                     {screen === "setup" ? (
                       <PlayerSetup
                         onBack={() => setScreen("landing")}
-                        onContinue={() => setScreen("game-select")}
+                        onContinue={() => setScreen("mode-select")}
                       />
                     ) : null}
 
@@ -270,18 +268,12 @@ export function AppShell() {
                       <OnlineRoomHub onBack={() => setScreen("landing")} />
                     ) : null}
 
-                    {screen === "game-select" ? (
-                      <GameSelection
+                    {screen === "mode-select" ? (
+                      <ModeSelection
                         onBack={() =>
-                          entryMode === "online"
-                            ? leaveOnlineRoom("online-room")
-                            : setScreen("setup")
+                          entryMode === "online" ? setScreen("online-room") : setScreen("setup")
                         }
                       />
-                    ) : null}
-
-                    {screen === "mode-select" ? (
-                      <ModeSelection onBack={() => setScreen("game-select")} />
                     ) : null}
                   </div>
                 </div>

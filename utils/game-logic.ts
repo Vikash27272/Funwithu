@@ -5,6 +5,7 @@ export {
   DIFFICULTY_META,
   DICE_DARE_GAME_ID,
   getDisplayName,
+  getDeckStats,
   getOppositePlayer,
   getTrackRows,
   MAX_POSITION,

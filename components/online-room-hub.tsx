@@ -22,6 +22,7 @@ export function OnlineRoomHub({ onBack }: OnlineRoomHubProps) {
   const onlineError = useGameStore((state) => state.onlineError);
   const clearOnlineError = useGameStore((state) => state.clearOnlineError);
   const leaveOnlineRoom = useGameStore((state) => state.leaveOnlineRoom);
+  const openMatchSetup = useGameStore((state) => state.openMatchSetup);
   const syncOnlineRoom = useGameStore((state) => state.syncOnlineRoom);
   const [createName, setCreateName] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -103,13 +104,23 @@ export function OnlineRoomHub({ onBack }: OnlineRoomHubProps) {
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void syncOnlineRoom()}
-              className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(127,29,45,0.22)]"
-            >
-              Open Lobby
-            </button>
+            {onlineRole === "male" ? (
+              <button
+                type="button"
+                onClick={openMatchSetup}
+                className="rounded-full bg-[linear-gradient(135deg,#c84d63,#7f1d2d)] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(127,29,45,0.22)]"
+              >
+                Open Dirty Dice Setup
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void syncOnlineRoom()}
+                className="rounded-full border border-[#ebccd2] bg-white px-6 py-3 text-sm font-semibold text-[#8a4353]"
+              >
+                Refresh Room
+              </button>
+            )}
             <button
               type="button"
               onClick={() => leaveOnlineRoom("online-room")}
@@ -169,7 +180,7 @@ export function OnlineRoomHub({ onBack }: OnlineRoomHubProps) {
           <h2 className="mt-5 font-display text-4xl text-[#5f1626]">Create Room</h2>
           <p className="mt-3 text-sm leading-7 text-[#85505c] sm:text-base">
             Enter the host player name and we will call your Supabase RPC to create a
-            unique room code. This phase is only for validating room creation.
+            unique room code for Dirty Dice.
           </p>
 
           <form
@@ -238,8 +249,7 @@ export function OnlineRoomHub({ onBack }: OnlineRoomHubProps) {
           </div>
           <h2 className="mt-5 font-display text-4xl text-[#5f1626]">Join Room</h2>
           <p className="mt-3 text-sm leading-7 text-[#85505c] sm:text-base">
-            Enter the room code and player name to join the existing Supabase room.
-            This test should add a second player to the same room.
+            Enter the room code and player name to join the existing Dirty Dice room.
           </p>
 
           <form

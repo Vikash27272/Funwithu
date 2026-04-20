@@ -113,12 +113,12 @@ export function Dice({
   const nextRotation = FACE_ROTATIONS[activeFace];
 
   return (
-    <div className="relative flex h-[5.4rem] w-[5.4rem] items-end justify-center pb-2 sm:h-[6rem] sm:w-[6rem]">
+    <div className="relative flex h-[4.7rem] w-[4.7rem] items-end justify-center pb-1.5 md:h-[6rem] md:w-[6rem] md:pb-2">
       <motion.button
         type="button"
         onClick={roll}
         disabled={disabled || rolling}
-        className="relative h-[4.35rem] w-[4.35rem] cursor-pointer rounded-[1rem] [transform-style:preserve-3d] disabled:cursor-not-allowed disabled:opacity-60 sm:h-[4.85rem] sm:w-[4.85rem] sm:rounded-[1.15rem]"
+        className="relative h-[3.75rem] w-[3.75rem] cursor-pointer rounded-[0.9rem] [transform-style:preserve-3d] disabled:cursor-not-allowed disabled:opacity-60 md:h-[4.85rem] md:w-[4.85rem] md:rounded-[1.15rem]"
         style={{ transformStyle: "preserve-3d" }}
         animate={
           rolling
@@ -179,7 +179,7 @@ export function Dice({
               }
         }
         transition={{ duration: 1.2, ease: "easeInOut" }}
-        className="absolute bottom-0.5 h-3 w-11 rounded-full bg-black/40 blur-md sm:w-12"
+        className="absolute bottom-0.5 h-2.5 w-9 rounded-full bg-black/40 blur-md md:h-3 md:w-12"
       />
     </div>
   );

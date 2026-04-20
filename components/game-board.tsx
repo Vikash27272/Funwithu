@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { DoorOpen, PencilLine, ScrollText, X } from "lucide-react";
+import { DoorOpen, ScrollText, X } from "lucide-react";
 import Image from "next/image";
 import { BoardCell } from "@/components/board-cell";
 import BoardWrapper from "@/components/board-wrapper";
 import { Dice } from "@/components/dice";
-import { TaskEditor } from "@/components/task-editor";
 import { TaskPopup } from "@/components/task-popup";
 import { useGameSounds } from "@/hooks/useGameSounds";
 import { getSkipAllowance, getTrackRows } from "@/utils/game-logic";
@@ -70,6 +69,7 @@ function PlayerPanel({
           chip: "bg-[linear-gradient(135deg,rgba(246,250,255,0.84),rgba(227,238,255,0.76))] text-[#3a70e4] border-[#cfe0ff]",
           meta: "text-[#e4eeff]",
         };
+  const roleLabel = role === "queen" ? "Queen" : "King";
 
   return (
     <motion.div
@@ -91,16 +91,16 @@ function PlayerPanel({
         ease: "easeInOut",
       }}
       style={{ boxShadow: theme.glow }}
-      className={`relative min-h-[9rem] overflow-hidden rounded-[1.4rem] border text-left backdrop-blur-xl sm:min-h-[9.5rem] sm:rounded-[1.7rem] lg:min-h-[10.5rem] ${theme.border} ${theme.surface}`}
+      className={`relative min-h-[4.35rem] overflow-hidden rounded-[1.05rem] border text-left backdrop-blur-xl md:min-h-[9rem] md:rounded-[1.7rem] lg:min-h-[10.5rem] xl:min-h-0 ${theme.border} ${theme.surface}`}
     >
-      <div className="absolute inset-1.5 sm:inset-2">
+      <div className="absolute inset-0 md:inset-2">
         <Image
           src={theme.image}
           alt={`${role} sample profile background`}
           fill
           unoptimized
           loading="eager"
-          sizes="(max-width: 640px) 42vw, (max-width: 1024px) 36vw, 24vw"
+          sizes="(max-width: 768px) 68vw, (max-width: 1024px) 36vw, 24vw"
           className="object-cover"
           style={{ objectPosition: theme.imagePosition }}
         />
@@ -108,15 +108,45 @@ function PlayerPanel({
       <div className={`absolute inset-0 ${theme.overlay}`} />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.05),transparent_34%)]" />
 
-      <div className="relative flex h-full flex-col px-2.5 py-2.5 sm:px-4 sm:py-3.5">
+      <div className="relative flex h-full items-center justify-between gap-2 px-2.5 py-2 md:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/24 bg-black/20 text-base shadow-[0_8px_20px_rgba(18,9,14,0.18)]">
+            {icon}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate font-display text-[1rem] leading-none text-white">
+              {name}
+            </p>
+            <p className={`mt-0.5 text-[0.58rem] uppercase tracking-[0.18em] ${theme.meta}`}>
+              {active ? `${roleLabel} turn` : roleLabel}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <p
+            className={`rounded-full border border-white/14 bg-black/10 px-2 py-1 text-[0.6rem] tracking-[0.08em] backdrop-blur-[6px] ${theme.meta}`}
+          >
+            {getSkipDisplay(skipsUsed, maxSkips)}
+          </p>
+          <span
+            className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border px-2 text-sm font-bold leading-none shadow-[0_8px_18px_rgba(18,9,14,0.16)] ${theme.chip}`}
+            aria-label={`Tile ${position}`}
+          >
+            {position}
+          </span>
+        </div>
+      </div>
+
+      <div className="relative hidden h-full flex-col px-4 py-3.5 md:flex">
         <div className="flex flex-col items-start gap-2">
           <div className="flex w-fit max-w-full self-start items-center gap-2 rounded-[1rem] border border-white/18 bg-black/14 px-2.5 py-2 pr-3 backdrop-blur-[8px]">
-            <span className="text-base sm:text-xl">{icon}</span>
-            <p className="truncate font-display text-lg leading-none text-white sm:text-[1.7rem] lg:text-[2rem]">
+            <span className="text-xl">{icon}</span>
+            <p className="truncate font-display text-[1.7rem] leading-none text-white lg:text-[2rem]">
               {name}
             </p>
             <span
-              className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border px-2.5 text-base font-bold leading-none shadow-[0_8px_18px_rgba(18,9,14,0.16)] sm:h-9 sm:min-w-9 sm:text-lg lg:h-10 lg:min-w-10 lg:text-xl ${theme.chip}`}
+              className={`inline-flex h-9 min-w-9 items-center justify-center rounded-full border px-2.5 text-lg font-bold leading-none shadow-[0_8px_18px_rgba(18,9,14,0.16)] lg:h-10 lg:min-w-10 lg:text-xl ${theme.chip}`}
               aria-label={`Tile ${position}`}
             >
               {position}
@@ -124,7 +154,7 @@ function PlayerPanel({
           </div>
 
           <p
-            className={`rounded-full border border-white/14 bg-black/10 px-3 py-1 text-sm tracking-[0.08em] backdrop-blur-[6px] sm:text-base lg:text-lg ${theme.meta}`}
+            className={`rounded-full border border-white/14 bg-black/10 px-3 py-1 text-base tracking-[0.08em] backdrop-blur-[6px] lg:text-lg ${theme.meta}`}
           >
             {getSkipDisplay(skipsUsed, maxSkips)}
           </p>
@@ -152,8 +182,8 @@ function SharedBoard({
   return (
     <div className="h-full w-full">
       <BoardWrapper>
-        <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,248,249,0.52))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_16px_36px_rgba(127,29,45,0.08)] sm:p-4">
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1.65rem] border border-white/75 bg-[rgba(34,10,16,0.18)] shadow-[0_18px_36px_rgba(127,29,45,0.12)]">
+        <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[1.3rem] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,248,249,0.52))] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_16px_36px_rgba(127,29,45,0.08)] md:rounded-[2rem] md:p-4">
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[1rem] border border-white/75 bg-[rgba(34,10,16,0.18)] shadow-[0_18px_36px_rgba(127,29,45,0.12)] md:rounded-[1.65rem]">
             <div className="absolute inset-0 overflow-hidden">
               <Image
                 src="/images/usage/board/shared-board-background__required-2400x520.jpg"
@@ -165,7 +195,7 @@ function SharedBoard({
                 className="object-cover object-center opacity-72 blur-[10px]"
               />
             </div>
-            <div className="absolute inset-2 sm:inset-3">
+            <div className="absolute inset-1.5 md:inset-3">
               <Image
                 src="/images/usage/board/shared-board-background__required-2400x520.jpg"
                 alt="Romantic shared board background"
@@ -173,12 +203,12 @@ function SharedBoard({
                 priority
                 unoptimized
                 sizes="100vw"
-                className="object-contain object-center"
+                className="object-cover object-center md:object-contain"
               />
             </div>
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))]" />
             <LayoutGroup id="shared-board">
-              <div className="relative grid h-full w-full grid-cols-10 grid-rows-5 gap-1 p-1.5 sm:gap-1.5 sm:p-2.5 lg:gap-2 lg:p-3">
+              <div className="relative grid h-full w-full grid-cols-10 grid-rows-5 gap-[2px] p-1 md:gap-1.5 md:p-2.5 lg:gap-2 lg:p-3">
                 {trackRows.flatMap((row) =>
                   row.map((cell) => {
                     const femaleHere = femalePosition === cell;
@@ -224,7 +254,6 @@ export function GameBoard() {
   const winner = useGameStore((state) => state.winner);
   const logs = useGameStore((state) => state.logs);
   const logsOpen = useGameStore((state) => state.logsOpen);
-  const editorOpen = useGameStore((state) => state.editorOpen);
   const clearedPlayers = useGameStore((state) => state.clearedPlayers);
   const resolveRoll = useGameStore((state) => state.resolveRoll);
   const finishLandingSequence = useGameStore((state) => state.finishLandingSequence);
@@ -232,7 +261,6 @@ export function GameBoard() {
   const resolvePendingTask = useGameStore((state) => state.resolvePendingTask);
   const continueAfterWin = useGameStore((state) => state.continueAfterWin);
   const toggleLogs = useGameStore((state) => state.toggleLogs);
-  const toggleEditor = useGameStore((state) => state.toggleEditor);
   const resetExperience = useGameStore((state) => state.resetExperience);
   const leaveOnlineRoom = useGameStore((state) => state.leaveOnlineRoom);
   const restartMatch = useGameStore((state) => state.restartMatch);
@@ -369,157 +397,201 @@ export function GameBoard() {
 
   return (
     <>
-      <div className="relative flex min-h-[var(--app-height,100dvh)] w-full max-w-full min-w-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_22%),linear-gradient(180deg,#6f1226_0%,#8d1d33_16%,#fdf7f8_16%,#fffafb_100%)] px-3 py-3 sm:px-4 sm:py-4">
-        <div className="mx-auto flex w-full max-w-[112rem] flex-col">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {entryMode === "offline" ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => toggleLogs(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
-                  aria-label="Open logs"
-                >
-                  <ScrollText className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleEditor(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
-                  aria-label="Edit tasks"
-                >
-                  <PencilLine className="h-5 w-5" />
-                </button>
-              </>
-            ) : null}
-          </div>
+      <div className="relative flex h-[var(--app-height,100dvh)] w-full max-w-full min-w-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_22%),linear-gradient(180deg,#6f1226_0%,#8d1d33_16%,#fdf7f8_16%,#fffafb_100%)] px-1.5 py-1.5 md:px-3 md:py-3 lg:px-4 lg:py-4">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-[112rem] flex-col gap-1.5 md:gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 md:hidden">
+            <div className="flex items-center gap-1.5">
+              {entryMode === "offline" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => toggleLogs(true)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
+                    aria-label="Open logs"
+                  >
+                    <ScrollText className="h-[1.125rem] w-[1.125rem]" />
+                  </button>
+                </>
+              ) : null}
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setExitOpen(true)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
-            aria-label="Exit game"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="mb-3 rounded-[1.45rem] border border-white/55 bg-white/58 px-4 py-3 shadow-[0_20px_44px_rgba(127,29,45,0.12)] backdrop-blur-xl sm:rounded-[1.6rem] sm:px-5">
-          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.24em] text-[#a05e6a] sm:text-[11px]">
+            <div className="min-w-0 flex-1 rounded-[1rem] border border-white/60 bg-white/72 px-3 py-1.5 shadow-[0_12px_24px_rgba(127,29,45,0.10)] backdrop-blur-xl">
+              <p className="text-[0.56rem] uppercase tracking-[0.22em] text-[#a05e6a]">
                 Shared Board
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#59202c] sm:text-base">
+              <p className="mt-0.5 truncate text-xs font-semibold text-[#59202c]">
                 {boardStatus}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-              {entryMode === "online" && onlineRoom ? (
+
+            <button
+              type="button"
+              onClick={() => setExitOpen(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
+              aria-label="Exit game"
+            >
+              <X className="h-[1.125rem] w-[1.125rem]" />
+            </button>
+          </div>
+
+          <div className="hidden shrink-0 items-center justify-between gap-3 md:flex">
+            <div className="flex items-center gap-2">
+              {entryMode === "offline" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => toggleLogs(true)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
+                    aria-label="Open logs"
+                  >
+                    <ScrollText className="h-5 w-5" />
+                  </button>
+                </>
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setExitOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/74 text-[#8a4353] shadow-[0_12px_22px_rgba(127,29,45,0.10)] backdrop-blur-md"
+              aria-label="Exit game"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center justify-center gap-1.5 px-0.5 md:hidden">
+            {entryMode === "online" && onlineRoom ? (
+              <div className="rounded-full border border-white/70 bg-white/70 px-2.5 py-1 text-[0.56rem] font-semibold uppercase tracking-[0.18em] text-[#8d4858]">
+                Room {onlineRoom.code}
+              </div>
+            ) : null}
+            <div className="rounded-full border border-white/70 bg-white/70 px-2.5 py-1 text-[0.56rem] font-semibold uppercase tracking-[0.18em] text-[#8d4858]">
+              First to 50 wins
+            </div>
+          </div>
+
+          <div className="hidden shrink-0 rounded-[1.6rem] border border-white/55 bg-white/58 px-5 py-3 shadow-[0_20px_44px_rgba(127,29,45,0.12)] backdrop-blur-xl md:block">
+            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[#a05e6a] sm:text-[11px]">
+                  Shared Board
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[#59202c] sm:text-base">
+                  {boardStatus}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                {entryMode === "online" && onlineRoom ? (
+                  <div className="rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8d4858] sm:text-[11px]">
+                    Room {onlineRoom.code}
+                  </div>
+                ) : null}
                 <div className="rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8d4858] sm:text-[11px]">
-                  Room {onlineRoom.code}
+                  First to 50 wins
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 md:grid md:gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-[1.35rem] border border-white/55 bg-white/24 p-1.5 shadow-[0_18px_42px_rgba(127,29,45,0.12)] backdrop-blur-xl md:rounded-[2.15rem] md:p-3.5 md:shadow-[0_26px_70px_rgba(127,29,45,0.16)]">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.35),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
+              <div className="mx-auto flex h-full min-h-0 w-full max-w-[96rem] flex-1 items-center justify-center">
+                <div className="flex h-full w-full flex-1 items-center justify-center">
+                  <div className="aspect-square h-full w-auto max-h-full max-w-full md:aspect-[2/1] md:w-full">
+                    <SharedBoard
+                      femalePosition={players.female.position}
+                      malePosition={players.male.position}
+                      openedCells={openedCells}
+                      highlightedTile={highlightedTile}
+                      highlightedPlayer={highlightedPlayer}
+                      activePlayer={currentTurn}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 rounded-[1.2rem] border border-white/55 bg-white/52 p-1.5 shadow-[0_16px_34px_rgba(127,29,45,0.10)] backdrop-blur-xl md:flex md:min-h-0 md:flex-col md:rounded-[1.6rem] md:bg-white/46 md:p-3 md:shadow-[0_20px_48px_rgba(127,29,45,0.12)]">
+              {entryMode === "online" ? (
+                <div className="mb-1.5 shrink-0 rounded-[1rem] border border-white/60 bg-white/72 px-3 py-1.5 md:mb-3 md:rounded-[1.35rem] md:px-4 md:py-3">
+                  <p className="text-[0.64rem] font-medium leading-4 text-[#85505c] md:text-sm md:leading-6">
+                    {gameState === "SHOW_CARD" && pendingTask
+                      ? isMyTurn
+                        ? "Finish the task card to pass the turn."
+                        : "Watching your partner's card resolve in real time."
+                      : gameState === "MOVE_PLAYER" || gameState === "DRAW_CARD"
+                        ? isMyTurn
+                          ? "Your move is landing. A random card is being drawn."
+                          : "Your partner is landing and drawing a card."
+                        : isMyTurn
+                          ? "Roll the dice to advance on the same shared board."
+                          : "Waiting for your partner to roll the dice."}
+                  </p>
                 </div>
               ) : null}
-              <div className="rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8d4858] sm:text-[11px]">
-                First to 50 wins
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="relative shrink-0 overflow-hidden rounded-[2rem] border border-white/55 bg-white/24 p-2 shadow-[0_26px_70px_rgba(127,29,45,0.16)] backdrop-blur-xl sm:rounded-[2.15rem] sm:p-3.5">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.35),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.04))]" />
-          <div className="mx-auto h-[min(82vw,28rem)] w-full max-w-[96rem] sm:h-[min(68vw,34rem)] lg:h-[min(48vw,39rem)] xl:h-[min(42vw,42rem)]">
-            <SharedBoard
-              femalePosition={players.female.position}
-              malePosition={players.male.position}
-              openedCells={openedCells}
-              highlightedTile={highlightedTile}
-              highlightedPlayer={highlightedPlayer}
-              activePlayer={currentTurn}
-            />
-          </div>
-        </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-2 items-center gap-1.5 md:min-h-0 md:flex-1 md:grid-cols-[minmax(0,1fr)_5.75rem_minmax(0,1fr)] md:grid-rows-1 md:items-stretch md:gap-3 lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)] xl:grid-cols-1 xl:grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                <PlayerPanel
+                  role="queen"
+                  name={players.female.name}
+                  position={players.female.position}
+                  skipsUsed={players.female.skipsUsed}
+                  maxSkips={getSkipAllowance("female", clearedPlayers)}
+                  active={currentTurn === "female" && !winner}
+                />
 
-        <div className="mt-3 shrink-0 rounded-[1.6rem] border border-white/55 bg-white/46 p-2.5 shadow-[0_20px_48px_rgba(127,29,45,0.12)] backdrop-blur-xl sm:p-3">
-          {entryMode === "online" ? (
-            <div className="mb-3 rounded-[1.35rem] border border-white/60 bg-white/72 px-4 py-3">
-              <p className="text-sm font-medium text-[#85505c]">
-                {gameState === "SHOW_CARD" && pendingTask
-                  ? isMyTurn
-                    ? "Finish the task card to pass the turn."
-                    : "Watching your partner's card resolve in real time."
-                  : gameState === "MOVE_PLAYER" || gameState === "DRAW_CARD"
-                    ? isMyTurn
-                      ? "Your move is landing. A random card is being drawn."
-                      : "Your partner is landing and drawing a card."
-                  : isMyTurn
-                    ? "Roll the dice to advance on the same shared board."
-                    : "Waiting for your partner to roll the dice."}
-              </p>
-            </div>
-          ) : null}
+                <div className="row-span-2 flex min-w-[4.35rem] flex-col items-center justify-center gap-1 px-0.5 md:row-span-1 md:min-w-[5.75rem] md:gap-2 md:px-1 lg:min-w-[7rem] xl:min-w-0 xl:px-0">
+                  <div
+                    className="overflow-visible"
+                    style={{
+                      perspective: "1200px",
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
+                    <Dice
+                      player={currentTurn}
+                      disabled={
+                        gameState !== "ROLL_DICE" ||
+                        Boolean(winner) ||
+                        (entryMode === "online" && !isMyTurn)
+                      }
+                      onRollStart={() => {
+                        vibrate("light");
+                        playDice();
+                      }}
+                      onRoll={resolveRoll}
+                    />
+                  </div>
+                  <p
+                    className={`text-center text-[0.56rem] font-semibold uppercase tracking-[0.15em] md:text-xs ${
+                      winner === "male" || (!winner && currentTurn === "male")
+                        ? "text-[#2d55cc]"
+                        : "text-[#8f4153]"
+                    }`}
+                  >
+                    {winner
+                      ? winner === "female"
+                        ? "Q Wins"
+                        : "K Wins"
+                      : currentTurn === "female"
+                        ? "Q Turn"
+                        : "K Turn"}
+                  </p>
+                </div>
 
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_4.75rem_minmax(0,1fr)] items-stretch gap-2 sm:grid-cols-[minmax(0,1fr)_5.75rem_minmax(0,1fr)] sm:gap-3 lg:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)]">
-            <PlayerPanel
-              role="queen"
-              name={players.female.name}
-              position={players.female.position}
-              skipsUsed={players.female.skipsUsed}
-              maxSkips={getSkipAllowance("female", clearedPlayers)}
-              active={currentTurn === "female" && !winner}
-            />
-
-            <div className="flex min-w-[4.75rem] flex-col items-center justify-center gap-2 px-1 sm:min-w-[5.75rem] lg:min-w-[7rem]">
-              <div
-                className="overflow-visible"
-                style={{
-                  perspective: "1200px",
-                  transformStyle: "preserve-3d",
-                }}
-              >
-                <Dice
-                  player={currentTurn}
-                  disabled={
-                    gameState !== "ROLL_DICE" ||
-                    Boolean(winner) ||
-                    (entryMode === "online" && !isMyTurn)
-                  }
-                  onRollStart={() => {
-                    vibrate("light");
-                    playDice();
-                  }}
-                  onRoll={resolveRoll}
+                <PlayerPanel
+                  role="king"
+                  name={players.male.name}
+                  position={players.male.position}
+                  skipsUsed={players.male.skipsUsed}
+                  maxSkips={getSkipAllowance("male", clearedPlayers)}
+                  active={currentTurn === "male" && !winner}
                 />
               </div>
-              <p
-                className={`text-center text-[10px] font-semibold uppercase tracking-[0.18em] sm:text-xs ${
-                  winner === "male" || (!winner && currentTurn === "male")
-                    ? "text-[#2d55cc]"
-                    : "text-[#8f4153]"
-                }`}
-              >
-                {winner
-                  ? winner === "female"
-                    ? "Queen Wins"
-                    : "King Wins"
-                  : currentTurn === "female"
-                    ? "Queen Turn"
-                    : "King Turn"}
-              </p>
             </div>
-
-            <PlayerPanel
-              role="king"
-              name={players.male.name}
-              position={players.male.position}
-              skipsUsed={players.male.skipsUsed}
-              maxSkips={getSkipAllowance("male", clearedPlayers)}
-              active={currentTurn === "male" && !winner}
-            />
           </div>
-        </div>
         </div>
       </div>
 
@@ -681,43 +753,6 @@ export function GameBoard() {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {entryMode === "offline" && editorOpen ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 overflow-auto bg-[rgba(18,3,7,0.28)] p-4 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: 12 }}
-              className="mx-auto w-full max-w-7xl rounded-[2rem] border border-white/60 bg-[linear-gradient(180deg,rgba(255,253,253,0.84),rgba(255,242,245,0.78))] p-4 shadow-[0_30px_90px_rgba(88,18,33,0.16)] backdrop-blur-xl sm:p-6"
-            >
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#a05e6a]">
-                    Live Editor
-                  </p>
-                  <h3 className="mt-2 font-display text-4xl text-[#5f1626]">
-                    Update The Couple Deck Mid-Game
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toggleEditor(false)}
-                  className="rounded-full border border-[#e4bcc4] bg-white/82 px-4 py-2 text-sm text-[#83404f] backdrop-blur-md"
-                >
-                  Close
-                </button>
-              </div>
-
-              <TaskEditor />
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
     </>
   );
 }
