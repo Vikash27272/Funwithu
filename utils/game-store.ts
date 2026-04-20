@@ -283,6 +283,42 @@ function createInitialState(sessionId = createSessionId()) {
   };
 }
 
+function refreshPersistedPresetState(
+  state: Partial<CoupleGameState> | undefined,
+) {
+  const sessionId = state?.onlineSessionId;
+  const nextState = createInitialState(sessionId);
+
+  return {
+    ...nextState,
+    screen: state?.screen ?? nextState.screen,
+    entryMode: state?.entryMode ?? nextState.entryMode,
+    selectedGame: state?.selectedGame ?? nextState.selectedGame,
+    mode: "preset" as const,
+    difficulty: state?.difficulty ?? nextState.difficulty,
+    players: state?.players ?? nextState.players,
+    logsOpen: state?.logsOpen ?? nextState.logsOpen,
+    onlineSessionId: nextState.onlineSessionId,
+    onlinePlayerId: state?.onlinePlayerId ?? nextState.onlinePlayerId,
+    onlineRoom: state?.onlineRoom ?? nextState.onlineRoom,
+    onlineRole: state?.onlineRole ?? nextState.onlineRole,
+    onlineRoomLoading: false,
+    onlineError: null,
+    tasks: buildTaskDeck(state?.difficulty ?? nextState.difficulty),
+    currentTurn: state?.currentTurn ?? nextState.currentTurn,
+    gameState: state?.gameState ?? nextState.gameState,
+    pendingTask: state?.pendingTask ?? nextState.pendingTask,
+    queuedTask: state?.queuedTask ?? nextState.queuedTask,
+    highlightedTile: state?.highlightedTile ?? nextState.highlightedTile,
+    highlightedPlayer: state?.highlightedPlayer ?? nextState.highlightedPlayer,
+    openedCells: state?.openedCells ?? nextState.openedCells,
+    diceValue: state?.diceValue ?? nextState.diceValue,
+    winner: state?.winner ?? nextState.winner,
+    logs: state?.logs ?? nextState.logs,
+    clearedPlayers: state?.clearedPlayers ?? nextState.clearedPlayers,
+  };
+}
+
 export const useGameStore = create<CoupleGameState>()(
   persist(
     (set, get) => {
@@ -606,6 +642,9 @@ export const useGameStore = create<CoupleGameState>()(
               selectedGame: DICE_DARE_GAME_ID as GameKey,
               phase: "mode-select",
               started: false,
+              gameOver: false,
+              turnIndex: 0,
+              matchSnapshot: null,
             })
               .then((synced) => {
                 if (!synced) {
@@ -816,15 +855,17 @@ export const useGameStore = create<CoupleGameState>()(
     },
     {
       name: "couple-game-mvp",
-      version: 3,
+      version: 4,
       skipHydration: true,
       migrate: (persistedState, version) => {
-        if (version < 3) {
+        if (version < 4) {
           const legacyState = persistedState as Partial<CoupleGameState> | undefined;
-          return createInitialState(legacyState?.onlineSessionId);
+          return refreshPersistedPresetState(legacyState);
         }
 
-        return persistedState as CoupleGameState;
+        return refreshPersistedPresetState(
+          persistedState as Partial<CoupleGameState> | undefined,
+        );
       },
       partialize: (state) => ({
         screen: state.screen,
