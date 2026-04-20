@@ -31,11 +31,11 @@ interface DeckLevelConfig {
 }
 
 interface DeckDataFile {
-  config?: {
+  config: {
     defaultDrawCount?: DeckCountConfig;
     levels?: Partial<Record<DeckLevel, DeckLevelConfig>>;
   };
-  cards?: DeckRow[];
+  cards: DeckRow[];
 }
 
 interface DeckPool {
@@ -95,22 +95,12 @@ function shuffleDeck(deck: TaskCard[]): TaskCard[] {
 }
 
 function getDeckRows(): DeckRow[] {
-  const deckSource = decks as DeckDataFile | DeckRow[];
-
-  if (Array.isArray(deckSource)) {
-    return deckSource;
-  }
-
+  const deckSource = decks as DeckDataFile;
   return Array.isArray(deckSource.cards) ? deckSource.cards : [];
 }
 
 function getDeckConfig(): DeckDataFile["config"] | undefined {
-  const deckSource = decks as DeckDataFile | DeckRow[];
-
-  if (Array.isArray(deckSource)) {
-    return undefined;
-  }
-
+  const deckSource = decks as DeckDataFile;
   return deckSource.config;
 }
 

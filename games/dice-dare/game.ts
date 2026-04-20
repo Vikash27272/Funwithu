@@ -63,15 +63,20 @@ function appendLog(
   return [{ id: createLogId(), text, tone }, ...logs].slice(0, 18);
 }
 
-function drawNextTask(tasks: TaskCard[]): { task: TaskCard | null; nextTasks: TaskCard[] } {
-  if (tasks.length === 0) {
+function drawNextTask(
+  tasks: TaskCard[],
+  performer: PlayerKey,
+): { task: TaskCard | null; nextTasks: TaskCard[] } {
+  const nextTaskIndex = tasks.findIndex((task) => task.performer === performer);
+
+  if (nextTaskIndex < 0) {
     return {
       task: null,
       nextTasks: tasks,
     };
   }
 
-  const [nextTask, ...remainingTasks] = tasks;
+  const nextTask = tasks[nextTaskIndex];
 
   if (!nextTask) {
     return {
@@ -82,7 +87,7 @@ function drawNextTask(tasks: TaskCard[]): { task: TaskCard | null; nextTasks: Ta
 
   return {
     task: nextTask,
-    nextTasks: remainingTasks.length > 0 ? [...remainingTasks, nextTask] : tasks,
+    nextTasks: tasks.filter((_, index) => index !== nextTaskIndex),
   };
 }
 
@@ -98,7 +103,7 @@ function queueLandingTask(
     };
   }
 
-  const { task, nextTasks } = drawNextTask(state.tasks);
+  const { task, nextTasks } = drawNextTask(state.tasks, player);
 
   return {
     queuedTask: task

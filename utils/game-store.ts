@@ -180,6 +180,22 @@ function defaultPlayersOrder(room: OnlineRoom): string[] {
   );
 }
 
+function getTurnIndexForRole(
+  room: Pick<OnlineRoom, "players">,
+  playersOrder: string[],
+  role: PlayerKey,
+): number | null {
+  const playerId = room.players[role]?.id;
+
+  if (!playerId) {
+    return null;
+  }
+
+  const nextIndex = playersOrder.indexOf(playerId);
+
+  return nextIndex >= 0 ? nextIndex : null;
+}
+
 function getTurnRole(room: OnlineRoom): PlayerKey | null {
   const activePlayerId = room.playersOrder[room.turnIndex];
 
@@ -212,7 +228,7 @@ function roomStatePatch(
       difficulty: snapshot.difficulty,
       players: snapshot.players,
       tasks: snapshot.tasks,
-      currentTurn: turnRole ?? snapshot.currentTurn,
+      currentTurn: snapshot.currentTurn,
       gameState: snapshot.gameState ?? "ROLL_DICE",
       pendingTask: snapshot.pendingTask,
       queuedTask: snapshot.queuedTask,
@@ -332,7 +348,18 @@ export const useGameStore = create<CoupleGameState>()(
             patch?.playersOrder ??
             latestRoom.playersOrder ??
             defaultPlayersOrder(latestRoom),
-          turnIndex: patch?.turnIndex ?? latestRoom.turnIndex ?? 0,
+          turnIndex:
+            patch?.turnIndex ??
+            (patch?.matchSnapshot
+              ? (getTurnIndexForRole(
+                  latestRoom,
+                  patch?.playersOrder ??
+                    latestRoom.playersOrder ??
+                    defaultPlayersOrder(latestRoom),
+                  patch.matchSnapshot.currentTurn,
+                ) ?? latestRoom.turnIndex)
+              : latestRoom.turnIndex) ??
+            0,
           started:
             patch?.started ??
             (patch && ("phase" in patch || "matchSnapshot" in patch)
@@ -654,11 +681,12 @@ export const useGameStore = create<CoupleGameState>()(
           }
 
           const names = defaultNames(state.players);
+          const nextTasks = buildTaskDeck(state.difficulty);
           const nextMatch = DiceDareGame.init({
             mode: "preset",
             difficulty: state.difficulty,
             names,
-            tasks: state.tasks,
+            tasks: nextTasks,
           });
 
           set({
@@ -711,11 +739,12 @@ export const useGameStore = create<CoupleGameState>()(
         restartMatch: () => {
           const state = get();
           const names = defaultNames(state.players);
+          const nextTasks = buildTaskDeck(state.difficulty);
           const nextMatch = DiceDareGame.init({
             mode: "preset",
             difficulty: state.difficulty,
             names,
-            tasks: state.tasks,
+            tasks: nextTasks,
           });
 
           set({

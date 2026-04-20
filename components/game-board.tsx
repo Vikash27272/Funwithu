@@ -242,8 +242,8 @@ export function GameBoard() {
   const { playCard, playDice, playLand, playUnwrap } = useGameSounds();
   const entryMode = useGameStore((state) => state.entryMode);
   const players = useGameStore((state) => state.players);
+  const onlineRole = useGameStore((state) => state.onlineRole);
   const onlineRoom = useGameStore((state) => state.onlineRoom);
-  const onlinePlayerId = useGameStore((state) => state.onlinePlayerId);
   const currentTurn = useGameStore((state) => state.currentTurn);
   const gameState = useGameStore((state) => state.gameState);
   const pendingTask = useGameStore((state) => state.pendingTask);
@@ -267,10 +267,9 @@ export function GameBoard() {
   const [exitOpen, setExitOpen] = useState(false);
   const lastLandingCueRef = useRef<string | null>(null);
   const lastCardCueRef = useRef<string | null>(null);
-  const currentTurnPlayerId = onlineRoom?.playersOrder?.[onlineRoom.turnIndex] ?? null;
   const isMyTurn =
-    entryMode === "online" && onlinePlayerId
-      ? currentTurnPlayerId === onlinePlayerId
+    entryMode === "online" && onlineRole
+      ? currentTurn === onlineRole
       : true;
   const canResolveTask = entryMode === "offline" || isMyTurn;
   const canControlWinnerModal = entryMode === "offline" || isMyTurn;
